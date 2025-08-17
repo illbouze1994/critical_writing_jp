@@ -357,6 +357,12 @@ function calculateFeatures(text: string, type: ParagraphType): Record<string, nu
     return count + (text.split(marker).length - 1);
   }, 0);
   
+  // キーワード抽出（簡易実装：重要そうな単語をカウント）
+  const importantKeywords = ['重要', '必要', '問題', '解決', '分析', '研究', '結果', '効果', '影響', '方法', '技術', '開発', 'システム', 'データ', '情報'];
+  features.keywordCount = importantKeywords.reduce((count, keyword) => {
+    return count + (text.split(keyword).length - 1);
+  }, 0);
+  
   // 段落種類による重み
   switch (type) {
     case ParagraphType.Heading:
