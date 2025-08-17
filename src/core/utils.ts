@@ -65,6 +65,9 @@ export function throttle<F extends (...args: any[]) => void>(
  * @returns 正規化された文字列
  */
 export function normalizeText(text: string): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
   return text.normalize('NFKC');
 }
 

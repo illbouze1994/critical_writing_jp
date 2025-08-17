@@ -12,7 +12,7 @@
     "declaration": false,
     "outDir": "out",
     "lib": ["ES2022"],
-    "types": ["node", "vscode"],
+    "types": ["node", "vscode", "jest"],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

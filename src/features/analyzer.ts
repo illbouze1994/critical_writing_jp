@@ -78,6 +78,8 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
 
 /**
  * Markdownドキュメントから段落を検出
+ * 仕様変更: "#"タグは章・節のタイトルとして扱い、
+ * その下のテキスト内容を自動的に段落として分割する
  * @param document 対象ドキュメント
  * @returns 段落の配列
  */
@@ -86,67 +88,171 @@ function detectParagraphs(document: vscode.TextDocument): Paragraph[] {
   const lines = text.split('\n');
   const paragraphs: Paragraph[] = [];
   
-  let currentParagraph: {
-    lines: string[];
-    startLine: number;
-    startOffset: number;
-    type: ParagraphType;
-  } | null = null;
-  
   let currentOffset = 0;
+  let currentSection: {
+    headerLine?: string;
+    contentLines: string[];
+    startOffset: number;
+    startLineIndex: number;
+  } | null = null;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmedLine = line.trim();
     
-    // 空行の処理
-    if (trimmedLine === '') {
-      if (currentParagraph) {
-        // 現在の段落を終了
-        finalizeParagraph(currentParagraph, currentOffset, paragraphs);
-        currentParagraph = null;
+    // ヘッダー行の検出（#で始まる行）
+    if (/^#{1,6}\s+/.test(trimmedLine)) {
+      // 前のセクションがあれば処理
+      if (currentSection) {
+        processSectionContent(currentSection, paragraphs);
       }
-      currentOffset += line.length + 1; // +1 for \n
-      continue;
-    }
-    
-    // 段落の種類を判定
-    const lineType = detectLineType(trimmedLine);
-    
-    if (currentParagraph) {
-      if (currentParagraph.type === lineType || 
-          (currentParagraph.type === ParagraphType.Normal && lineType === ParagraphType.Normal)) {
-        // 同じ種類の段落に追加
-        currentParagraph.lines.push(line);
-      } else {
-        // 種類が変わったので前の段落を終了し、新しい段落を開始
-        finalizeParagraph(currentParagraph, currentOffset, paragraphs);
-        currentParagraph = {
-          lines: [line],
-          startLine: i,
-          startOffset: currentOffset,
-          type: lineType
-        };
-      }
-    } else {
-      // 新しい段落を開始
-      currentParagraph = {
+      
+      // 新しいセクションの開始
+      currentSection = {
+        headerLine: line,
+        contentLines: [],
+        startOffset: currentOffset,
+        startLineIndex: i
+      };
+    } else if (currentSection) {
+      // ヘッダーの下のコンテンツ行を収集
+      currentSection.contentLines.push(line);
+    } else if (trimmedLine !== '') {
+      // ヘッダーなしのコンテンツ（ドキュメント冒頭など）
+      const lineType = detectLineType(trimmedLine);
+      const paragraphData = {
         lines: [line],
         startLine: i,
         startOffset: currentOffset,
         type: lineType
       };
+      finalizeParagraph(paragraphData, currentOffset + line.length + 1, paragraphs);
     }
     
     currentOffset += line.length + 1; // +1 for \n
   }
   
-  // 最後の段落を処理
-  if (currentParagraph) {
-    finalizeParagraph(currentParagraph, currentOffset, paragraphs);
+  // 最後のセクションを処理
+  if (currentSection) {
+    processSectionContent(currentSection, paragraphs);
   }
   
   return paragraphs;
+}
+
+/**
+ * セクション（ヘッダー配下）のコンテンツを段落に分割
+ */
+function processSectionContent(
+  section: {
+    headerLine?: string;
+    contentLines: string[];
+    startOffset: number;
+    startLineIndex: number;
+  },
+  paragraphs: Paragraph[]
+): void {
+  const contentLines = section.contentLines;
+  let currentParagraph: string[] = [];
+  let paragraphStartOffset = section.startOffset;
+  
+  // ヘッダー行の分だけオフセットを進める
+  if (section.headerLine) {
+    paragraphStartOffset += section.headerLine.length + 1;
+  }
+  
+  for (let i = 0; i < contentLines.length; i++) {
+    const line = contentLines[i];
+    const trimmedLine = line.trim();
+    
+    if (trimmedLine === '') {
+      // 空行で段落を区切る
+      if (currentParagraph.length > 0) {
+        createTextParagraph(currentParagraph, paragraphStartOffset, paragraphs);
+        currentParagraph = [];
+        
+        // 次の段落の開始オフセットを更新
+        paragraphStartOffset += currentParagraph.reduce((sum, l) => sum + l.length + 1, 0) + line.length + 1;
+      } else {
+        paragraphStartOffset += line.length + 1;
+      }
+    } else {
+      // 特殊な行タイプの場合は独立した段落として扱う
+      const lineType = detectLineType(trimmedLine);
+      if (lineType !== ParagraphType.Normal) {
+        // 現在の通常段落があれば先に確定
+        if (currentParagraph.length > 0) {
+          createTextParagraph(currentParagraph, paragraphStartOffset, paragraphs);
+          currentParagraph = [];
+        }
+        
+        // 特殊行を独立段落として作成
+        const paragraphData = {
+          lines: [line],
+          startLine: section.startLineIndex + i + 1, // +1 for header
+          startOffset: paragraphStartOffset,
+          type: lineType
+        };
+        finalizeParagraph(paragraphData, paragraphStartOffset + line.length + 1, paragraphs);
+        paragraphStartOffset += line.length + 1;
+      } else {
+        // 通常のテキスト行は現在の段落に追加
+        currentParagraph.push(line);
+      }
+    }
+  }
+  
+  // 最後の段落を処理
+  if (currentParagraph.length > 0) {
+    createTextParagraph(currentParagraph, paragraphStartOffset, paragraphs);
+  }
+}
+
+/**
+ * テキスト段落を作成（日本語の場合、全角スペースで始まる行を段落区切りとして扱う）
+ */
+function createTextParagraph(lines: string[], startOffset: number, paragraphs: Paragraph[]): void {
+  if (lines.length === 0) return;
+  
+  // 日本語文書の場合、全角スペース（　）で始まる行ごとに段落を分割
+  const subParagraphs: string[][] = [];
+  let currentSubParagraph: string[] = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('　') || trimmed.match(/^[^\s　]/)) {
+      // 全角スペースで始まる行、または通常の文字で始まる行
+      if (currentSubParagraph.length > 0 && trimmed.startsWith('　')) {
+        // 新しい段落の開始
+        subParagraphs.push([...currentSubParagraph]);
+        currentSubParagraph = [line];
+      } else {
+        currentSubParagraph.push(line);
+      }
+    } else {
+      currentSubParagraph.push(line);
+    }
+  }
+  
+  // 最後のサブ段落を追加
+  if (currentSubParagraph.length > 0) {
+    subParagraphs.push(currentSubParagraph);
+  }
+  
+  // 各サブ段落をParagraphオブジェクトとして作成
+  let currentOffset = startOffset;
+  for (const subLines of subParagraphs) {
+    const paragraphData = {
+      lines: subLines,
+      startLine: 0, // 実際の行番号計算は省略（必要に応じて実装）
+      startOffset: currentOffset,
+      type: ParagraphType.Normal
+    };
+    
+    const endOffset = currentOffset + subLines.reduce((sum, line) => sum + line.length + 1, 0);
+    finalizeParagraph(paragraphData, endOffset, paragraphs);
+    currentOffset = endOffset;
+  }
 }
 
 /**

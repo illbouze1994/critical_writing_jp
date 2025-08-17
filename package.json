@@ -7,9 +7,19 @@
   "engines": {
     "vscode": "^1.103.0"
   },
-  "extensionKind": ["workspace"],
-  "categories": ["Other"],
-  "keywords": ["markdown", "japanese", "writing", "academic", "analysis"],
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "japanese",
+    "writing",
+    "academic",
+    "analysis"
+  ],
   "activationEvents": [
     "onLanguage:markdown",
     "onCommand:criticalWritingJp.togglePanel",
@@ -64,20 +74,50 @@
         },
         "criticalWritingJp.keyword.mode": {
           "type": "string",
-          "enum": ["rules", "tfidf", "embed"],
+          "enum": [
+            "rules",
+            "tfidf",
+            "embed"
+          ],
           "default": "rules",
           "description": "キーワード抽出モード"
         },
         "criticalWritingJp.roi.weights": {
           "type": "object",
           "properties": {
-            "w1": { "type": "number", "minimum": 0, "maximum": 1 },
-            "w2": { "type": "number", "minimum": 0, "maximum": 1 },
-            "w3": { "type": "number", "minimum": 0, "maximum": 1 },
-            "w4": { "type": "number", "minimum": 0, "maximum": 1 }
+            "w1": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "w2": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "w3": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "w4": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
           },
-          "required": ["w1", "w2", "w3", "w4"],
-          "default": { "w1": 0.35, "w2": 0.35, "w3": 0.15, "w4": 0.15 },
+          "required": [
+            "w1",
+            "w2",
+            "w3",
+            "w4"
+          ],
+          "default": {
+            "w1": 0.35,
+            "w2": 0.35,
+            "w3": 0.15,
+            "w4": 0.15
+          },
           "description": "ROI計算の重み係数"
         },
         "criticalWritingJp.llm.enabled": {
@@ -87,7 +127,10 @@
         },
         "criticalWritingJp.llm.backend": {
           "type": "string",
-          "enum": ["wasm", "node"],
+          "enum": [
+            "wasm",
+            "node"
+          ],
           "default": "wasm",
           "description": "LLMバックエンド種別"
         },
@@ -113,7 +156,9 @@
         },
         "criticalWritingJp.citationStyle.packPaths": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "引用スタイルパックのパス一覧"
         },
@@ -124,7 +169,10 @@
         },
         "criticalWritingJp.citationStyle.diffMode": {
           "type": "string",
-          "enum": ["unified", "side-by-side"],
+          "enum": [
+            "unified",
+            "side-by-side"
+          ],
           "default": "unified",
           "description": "差分表示モード"
         },
@@ -156,17 +204,23 @@
     "watch": "node scripts/build.js --watch",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "npm run test:unit",
-    "test:unit": "echo \"Unit tests not implemented yet\"",
+    "test": "jest",
+    "test:unit": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --coverageReporters=text-lcov",
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
     "@types/vscode": "^1.103.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.24.0",
     "eslint": "^9.0.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.9.2"
   }
 }
