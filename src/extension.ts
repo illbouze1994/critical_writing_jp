@@ -38,9 +38,12 @@ export function activate(context: vscode.ExtensionContext) {
     const activationTime = Date.now() - startTime;
     console.log(`[CriticalWritingJp] Extension activated in ${activationTime}ms`);
     
-    // アクティベーション時間が50ms以上の場合は警告
-    if (activationTime > 50) {
-      console.warn(`[CriticalWritingJp] Activation time (${activationTime}ms) exceeded target (50ms)`);
+    // アクティベーション時間の閾値を定数として抽出（リファクタリング：Extract Variable）
+    const ACTIVATION_TIME_THRESHOLD_MS = 50;
+    
+    // アクティベーション時間が閾値以上の場合は警告
+    if (activationTime > ACTIVATION_TIME_THRESHOLD_MS) {
+      console.warn(`[CriticalWritingJp] Activation time (${activationTime}ms) exceeded target (${ACTIVATION_TIME_THRESHOLD_MS}ms)`);
     }
 
   } catch (error) {
@@ -60,22 +63,44 @@ export function deactivate() {
 }
 
 /**
- * コマンドの登録（遅延ロード）
+ * コマンドハンドラーのエラー処理テンプレート（リファクタリング：Replace Template Method）
  */
-function registerCommands(store: DisposableStore, context: vscode.ExtensionContext) {
-  // パネル表示/非表示トグル
-  store.add(vscode.commands.registerCommand('criticalWritingJp.togglePanel', async () => {
+function withErrorHandling(
+  commandHandler: () => Promise<void>,
+  errorContext: string,
+  userErrorMessage: string
+): () => Promise<void> {
+  return async () => {
     try {
-      // 初回実行時のみWebviewパネル機能を動的ロード
-      const { createOrShowPanel } = await import('./features/panel');
-      await createOrShowPanel(context);
+      await commandHandler();
     } catch (error) {
-      console.error('[CriticalWritingJp] Failed to toggle panel:', error);
-      vscode.window.showErrorMessage('パネルの表示に失敗しました');
+      console.error(`[CriticalWritingJp] ${errorContext}:`, error);
+      vscode.window.showErrorMessage(userErrorMessage);
     }
-  }));
+  };
+}
 
-  // LLM機能有効化（同意必須）
+/**
+ * パネル表示/非表示トグルコマンドの登録（リファクタリング：Extract Function）
+ */
+function registerTogglePanelCommand(store: DisposableStore, context: vscode.ExtensionContext) {
+  store.add(vscode.commands.registerCommand('criticalWritingJp.togglePanel', 
+    withErrorHandling(
+      async () => {
+        // 初回実行時のみWebviewパネル機能を動的ロード
+        const { createOrShowPanel } = await import('./features/panel');
+        await createOrShowPanel(context);
+      },
+      'Failed to toggle panel',
+      'パネルの表示に失敗しました'
+    )
+  ));
+}
+
+/**
+ * LLM機能有効化コマンドの登録（リファクタリング：Extract Function）
+ */
+function registerEnableLLMCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.enableLLM', async () => {
     try {
       const result = await vscode.window.showInformationMessage(
@@ -93,8 +118,12 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
       vscode.window.showErrorMessage('LLM機能の有効化に失敗しました');
     }
   }));
+}
 
-  // Google Books APIキー設定
+/**
+ * Google Books APIキー設定コマンドの登録（リファクタリング：Extract Function）
+ */
+function registerConfigureGoogleBooksKeyCommand(store: DisposableStore, context: vscode.ExtensionContext) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.configureGoogleBooksKey', async () => {
     try {
       const apiKey = await vscode.window.showInputBox({
@@ -118,8 +147,12 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
       vscode.window.showErrorMessage('APIキーの設定に失敗しました');
     }
   }));
+}
 
-  // キーワード解析の即時実行
+/**
+ * キーワード解析即時実行コマンドの登録（リファクタリング：Extract Function）
+ */
+function registerRunKeywordNowCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.runKeywordNow', async () => {
     try {
       const editor = vscode.window.activeTextEditor;
@@ -138,8 +171,12 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
       vscode.window.showErrorMessage('キーワード解析に失敗しました');
     }
   }));
+}
 
-  // 引用スタイル検証
+/**
+ * 引用スタイル検証コマンドの登録（リファクタリング：Extract Function）
+ */
+function registerValidateCitationStyleCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.validateCitationStyle', async () => {
     try {
       vscode.window.showInformationMessage('引用スタイル検証は将来のバージョンで実装予定です');
@@ -148,8 +185,12 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
       vscode.window.showErrorMessage('引用スタイル検証に失敗しました');
     }
   }));
+}
 
-  // スタイル問題修正
+/**
+ * スタイル問題修正コマンドの登録（リファクタリング：Extract Function）
+ */
+function registerFixStyleIssuesCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.fixStyleIssues', async () => {
     try {
       vscode.window.showInformationMessage('スタイル修正機能は将来のバージョンで実装予定です');
@@ -158,6 +199,18 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
       vscode.window.showErrorMessage('スタイル修正に失敗しました');
     }
   }));
+}
+
+/**
+ * コマンドの登録（遅延ロード）
+ */
+function registerCommands(store: DisposableStore, context: vscode.ExtensionContext) {
+  registerTogglePanelCommand(store, context);
+  registerEnableLLMCommand(store);
+  registerConfigureGoogleBooksKeyCommand(store, context);
+  registerRunKeywordNowCommand(store);
+  registerValidateCitationStyleCommand(store);
+  registerFixStyleIssuesCommand(store);
 }
 
 /**
