@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
     registerCommands(store, context);
 
     // Markdown言語でのテキスト変更監視の登録
-    registerTextDocumentHandlers(store);
+    registerTextDocumentHandlers(store, context);
 
     // 設定変更監視
     store.add(globalSettings.onDidChange((newSettings) => {
@@ -216,7 +216,7 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
 /**
  * テキストドキュメントのハンドラ登録
  */
-function registerTextDocumentHandlers(store: DisposableStore) {
+function registerTextDocumentHandlers(store: DisposableStore, context: vscode.ExtensionContext) {
   // Markdownファイルのテキスト変更監視
   store.add(vscode.workspace.onDidChangeTextDocument(async (event) => {
     try {
@@ -244,6 +244,10 @@ function registerTextDocumentHandlers(store: DisposableStore) {
       // 新しいMarkdownファイルが開かれた時の初期解析
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
+
+      // Markdownファイルが開かれた時に自動的にパネルを表示
+      const { createOrShowPanel } = await import('./features/panel');
+      await createOrShowPanel(context);
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);
     }

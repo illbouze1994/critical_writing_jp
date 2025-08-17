@@ -450,8 +450,16 @@ async function updateEditorDecorations(
     borderRadius: '3px'
   });
   
+  const keywordDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(0, 255, 255, 0.15)',
+    border: '1px solid rgba(0, 255, 255, 0.4)',
+    borderRadius: '2px',
+    fontWeight: 'bold'
+  });
+  
   const overRanges: vscode.Range[] = [];
   const underRanges: vscode.Range[] = [];
+  const keywordRanges: vscode.Range[] = [];
   
   // 各段落の文字数をチェック
   for (const paragraph of result.paragraphs) {
@@ -469,11 +477,33 @@ async function updateEditorDecorations(
     } else if (paragraph.chars < min) {
       underRanges.push(range);
     }
+    
+    // キーワードのハイライト処理
+    const paragraphKeywords = result.keywords.get(paragraph.id);
+    if (paragraphKeywords && paragraphKeywords.length > 0) {
+      const paragraphText = paragraph.text;
+      const startOffset = paragraph.range.start;
+      
+      for (const keyword of paragraphKeywords) {
+        let searchStart = 0;
+        let index = -1;
+        
+        // 同じキーワードの複数出現をすべて検出
+        while ((index = paragraphText.indexOf(keyword.term, searchStart)) !== -1) {
+          const keywordStartPos = document.positionAt(startOffset + index);
+          const keywordEndPos = document.positionAt(startOffset + index + keyword.term.length);
+          const keywordRange = new vscode.Range(keywordStartPos, keywordEndPos);
+          keywordRanges.push(keywordRange);
+          searchStart = index + 1;
+        }
+      }
+    }
   }
   
   // 装飾を適用
   editor.setDecorations(overDecoration, overRanges);
   editor.setDecorations(underDecoration, underRanges);
+  editor.setDecorations(keywordDecoration, keywordRanges);
   
   // ステータスバーの更新
   updateStatusBar(result, settings);
