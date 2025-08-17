@@ -1,7 +1,172 @@
 {
+  "name": "critical-writing-jp",
+  "displayName": "CriticalWritingJp",
+  "description": "日本語学術・技術文書の執筆支援拡張機能",
+  "version": "1.0.0",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.103.0"
+  },
+  "extensionKind": ["workspace"],
+  "categories": ["Other"],
+  "keywords": ["markdown", "japanese", "writing", "academic", "analysis"],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onCommand:criticalWritingJp.togglePanel",
+    "onCommand:criticalWritingJp.enableLLM",
+    "onCommand:criticalWritingJp.configureGoogleBooksKey",
+    "onCommand:criticalWritingJp.runKeywordNow",
+    "onCommand:criticalWritingJp.validateCitationStyle",
+    "onCommand:criticalWritingJp.fixStyleIssues"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "criticalWritingJp.togglePanel",
+        "title": "CriticalWritingJp: Toggle Panel"
+      },
+      {
+        "command": "criticalWritingJp.enableLLM",
+        "title": "CriticalWritingJp: Enable LLM (Consent)"
+      },
+      {
+        "command": "criticalWritingJp.configureGoogleBooksKey",
+        "title": "CriticalWritingJp: Configure Google Books API Key"
+      },
+      {
+        "command": "criticalWritingJp.runKeywordNow",
+        "title": "CriticalWritingJp: Re-Analyze Now"
+      },
+      {
+        "command": "criticalWritingJp.validateCitationStyle",
+        "title": "CriticalWritingJp: Validate Citation Style"
+      },
+      {
+        "command": "criticalWritingJp.fixStyleIssues",
+        "title": "CriticalWritingJp: Apply Style Fixes"
+      }
+    ],
+    "configuration": {
+      "title": "CriticalWritingJp",
+      "properties": {
+        "criticalWritingJp.counting.threshold.min": {
+          "type": "number",
+          "minimum": 0,
+          "default": 200,
+          "description": "段落の最小文字数しきい値"
+        },
+        "criticalWritingJp.counting.threshold.max": {
+          "type": "number",
+          "minimum": 1,
+          "default": 800,
+          "description": "段落の最大文字数しきい値"
+        },
+        "criticalWritingJp.keyword.mode": {
+          "type": "string",
+          "enum": ["rules", "tfidf", "embed"],
+          "default": "rules",
+          "description": "キーワード抽出モード"
+        },
+        "criticalWritingJp.roi.weights": {
+          "type": "object",
+          "properties": {
+            "w1": { "type": "number", "minimum": 0, "maximum": 1 },
+            "w2": { "type": "number", "minimum": 0, "maximum": 1 },
+            "w3": { "type": "number", "minimum": 0, "maximum": 1 },
+            "w4": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["w1", "w2", "w3", "w4"],
+          "default": { "w1": 0.35, "w2": 0.35, "w3": 0.15, "w4": 0.15 },
+          "description": "ROI計算の重み係数"
+        },
+        "criticalWritingJp.llm.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "LLM評価機能の有効化"
+        },
+        "criticalWritingJp.llm.backend": {
+          "type": "string",
+          "enum": ["wasm", "node"],
+          "default": "wasm",
+          "description": "LLMバックエンド種別"
+        },
+        "criticalWritingJp.llm.modelPath": {
+          "type": "string",
+          "default": "",
+          "description": "LLMモデルファイルパス"
+        },
+        "criticalWritingJp.citations.googleBooks.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Books APIキー"
+        },
+        "criticalWritingJp.style.dictionaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "スタイル辞書ファイルパス"
+        },
+        "criticalWritingJp.citationStyle.active": {
+          "type": "string",
+          "default": "generic.ja.v1",
+          "description": "アクティブな引用スタイル"
+        },
+        "criticalWritingJp.citationStyle.packPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "引用スタイルパックのパス一覧"
+        },
+        "criticalWritingJp.citationStyle.autoFix.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "引用スタイル自動修正の有効化"
+        },
+        "criticalWritingJp.citationStyle.diffMode": {
+          "type": "string",
+          "enum": ["unified", "side-by-side"],
+          "default": "unified",
+          "description": "差分表示モード"
+        },
+        "criticalWritingJp.privacy.anonymizeBeforeSend": {
+          "type": "boolean",
+          "default": true,
+          "description": "外部送信前の匿名化処理"
+        },
+        "criticalWritingJp.performance.maxWorkers": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 2,
+          "description": "最大ワーカー数"
+        },
+        "criticalWritingJp.ui.preview.headChars": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 120,
+          "default": 40,
+          "description": "プレビュー表示文字数"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:dev": "node scripts/build.js --dev",
+    "watch": "node scripts/build.js --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "npm run test:unit",
+    "test:unit": "echo \"Unit tests not implemented yet\"",
+    "vscode:prepublish": "npm run build"
+  },
   "devDependencies": {
     "@types/node": "^24.3.0",
-    "tslint": "^5.20.1",
+    "@types/vscode": "^1.103.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.0.0",
     "typescript": "^5.9.2"
   }
 }
