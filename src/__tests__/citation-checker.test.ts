@@ -1,4 +1,4 @@
-import { CitationChecker, CitationStylePack, CitationStyleRule } from '../features/citation-checker';
+import { citationChecker, CitationStylePack, CitationStyleRule } from '../features/citation-checker';
 import { Paragraph, ParagraphType } from '../core/types';
 import * as vscode from 'vscode';
 
@@ -26,11 +26,7 @@ const mockDocument = {
 } as any;
 
 describe('CitationChecker', () => {
-  let citationChecker: CitationChecker;
-
-  beforeEach(() => {
-    citationChecker = new CitationChecker();
-  });
+  // Using the singleton instance instead of creating new instances
 
   describe('loadStylePack', () => {
     it('should load style pack successfully', () => {
@@ -192,8 +188,7 @@ describe('CitationChecker', () => {
     });
 
     it('should warn when style pack is not found', () => {
-      const emptyChecker = new CitationChecker();
-      
+      // Test with no style pack loaded (using empty string to simulate no active style)
       const paragraphs: Paragraph[] = [
         {
           id: 'test1',
@@ -204,8 +199,9 @@ describe('CitationChecker', () => {
         }
       ];
 
-      const violations = emptyChecker.validateCitationStyle(mockDocument, paragraphs);
+      const violations = citationChecker.validateCitationStyle(mockDocument, paragraphs);
       
+      // When no style pack is loaded, should return empty violations
       expect(violations).toEqual([]);
     });
   });

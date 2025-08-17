@@ -1,4 +1,4 @@
-import { StyleChecker, StyleDictionaryEntry } from '../features/style-checker';
+import { styleChecker, StyleDictionaryEntry } from '../features/style-checker';
 import { Paragraph, ParagraphType } from '../core/types';
 import * as vscode from 'vscode';
 
@@ -26,11 +26,7 @@ const mockDocument = {
 } as any;
 
 describe('StyleChecker', () => {
-  let styleChecker: StyleChecker;
-  
-  beforeEach(() => {
-    styleChecker = new StyleChecker();
-  });
+  // Using the singleton instance instead of creating new instances
 
   describe('loadDictionary', () => {
     it('should load dictionary entries successfully', () => {
@@ -139,7 +135,8 @@ describe('StyleChecker', () => {
     });
 
     it('should handle empty dictionary', () => {
-      const emptyStyleChecker = new StyleChecker();
+      // Clear the dictionary to test empty state
+      styleChecker.loadDictionary([]);
       
       const paragraphs: Paragraph[] = [
         {
@@ -151,7 +148,7 @@ describe('StyleChecker', () => {
         }
       ];
 
-      const violations = emptyStyleChecker.checkStyle(mockDocument, paragraphs);
+      const violations = styleChecker.checkStyle(mockDocument, paragraphs);
       
       expect(violations).toEqual([]);
     });
@@ -192,8 +189,8 @@ describe('StyleChecker', () => {
         }
       ];
       
-      const longMatchChecker = new StyleChecker();
-      longMatchChecker.loadDictionary(entries);
+      // Load the dictionary for longest match test
+      styleChecker.loadDictionary(entries);
       
       const paragraphs: Paragraph[] = [
         {
@@ -205,7 +202,7 @@ describe('StyleChecker', () => {
         }
       ];
 
-      const violations = longMatchChecker.checkStyle(mockDocument, paragraphs);
+      const violations = styleChecker.checkStyle(mockDocument, paragraphs);
       
       // 最長マッチ優先で「データベース」が検出される（「データ」ではない）
       expect(violations.length).toBe(1);

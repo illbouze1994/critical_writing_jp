@@ -1,12 +1,8 @@
-import { ROIEngine } from '../features/roi-engine';
+import { roiEngine } from '../features/roi-engine';
 import { Paragraph, ParagraphType, Keyword } from '../core/types';
 
 describe('ROIEngine', () => {
-  let roiEngine: ROIEngine;
-
-  beforeEach(() => {
-    roiEngine = new ROIEngine();
-  });
+  // Using the singleton instance instead of creating new instances
 
   describe('calculateROI', () => {
     const sampleParagraph: Paragraph = {

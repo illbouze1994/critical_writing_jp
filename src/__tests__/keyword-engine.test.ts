@@ -1,12 +1,8 @@
-import { KeywordEngine } from '../features/keyword-engine';
+import { keywordEngine } from '../features/keyword-engine';
 import { Paragraph, ParagraphType } from '../core/types';
 
 describe('KeywordEngine', () => {
-  let keywordEngine: KeywordEngine;
-
-  beforeEach(() => {
-    keywordEngine = new KeywordEngine();
-  });
+  // Using the singleton instance instead of creating new instances
 
   describe('extractKeywords', () => {
     it('should extract keywords in rules mode', async () => {
