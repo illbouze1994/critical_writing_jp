@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AnalysisResult } from '../core/types';
 import { getCachedAnalysisResult } from './analyzer';
+import { TextAnalyzer } from '../core/text-analyzer';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 
@@ -115,6 +116,11 @@ function createPanelPayload(result: AnalysisResult) {
   const overCount = result.paragraphs.filter(p => p.chars > maxThreshold).length;
   const underCount = result.paragraphs.filter(p => p.chars < minThreshold).length;
 
+  // 文字種分析を実行（全段落のテキストを結合）
+  const allTexts = result.paragraphs.map(p => p.text);
+  const characterAnalysis = TextAnalyzer.analyzeParagraphs(allTexts);
+  const pieChartData = TextAnalyzer.createPieChartData(characterAnalysis);
+
   const rows = result.paragraphs.map(paragraph => {
     // プレビューテキストを作成
     const previewText = paragraph.text.replace(/\n/g, ' ').substring(0, previewChars);
@@ -149,6 +155,18 @@ function createPanelPayload(result: AnalysisResult) {
         min: minThreshold,
         max: maxThreshold
       }
+    },
+    // 円グラフデータを追加
+    charts: {
+      characterBalance: pieChartData.characterBalance,
+      joyoKanjiUsage: pieChartData.joyoKanjiUsage
+    },
+    // 文字種分析結果を追加
+    characterAnalysis: {
+      totalChars: characterAnalysis.totalChars,
+      joyoKanjiUsage: characterAnalysis.joyoKanjiUsage,
+      ratios: characterAnalysis.ratios,
+      counts: characterAnalysis.counts
     },
     rows,
     timestamp: result.timestamp
@@ -220,8 +238,9 @@ function getWebviewContent(webview: vscode.Webview): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; img-src ${webview.cspSource} data:;">
     <title>CriticalWritingJp</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" nonce="${nonce}"></script>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -334,6 +353,46 @@ function getWebviewContent(webview: vscode.Webview): string {
         .button-secondary:hover {
             background: var(--vscode-button-secondaryHoverBackground);
         }
+        .charts-section {
+            margin-bottom: 20px;
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .charts-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: var(--vscode-titleBar-activeForeground);
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-container {
+            text-align: center;
+        }
+        .chart-label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--vscode-foreground);
+        }
+        .chart-canvas {
+            max-width: 100%;
+            max-height: 250px;
+        }
+        .chart-stats {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+        @media (max-width: 600px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -360,9 +419,30 @@ function getWebviewContent(webview: vscode.Webview): string {
                 return;
             }
             
-            const { summary, rows } = payload;
+            const { summary, rows, charts, characterAnalysis } = payload;
             
             content.innerHTML = \`
+                <!-- 円グラフセクション -->
+                <div class="charts-section">
+                    <div class="charts-title">📊 文字種バランス・常用漢字使用状況</div>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-label">文字種バランス</div>
+                            <canvas id="characterBalanceChart" class="chart-canvas"></canvas>
+                            <div class="chart-stats">
+                                総文字数: ${characterAnalysis.totalChars.toLocaleString()}文字
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-label">常用漢字使用率</div>
+                            <canvas id="joyoKanjiChart" class="chart-canvas"></canvas>
+                            <div class="chart-stats">
+                                使用率: ${Math.round(characterAnalysis.joyoKanjiUsage * 100)}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="summary">
                     <div class="summary-item">
                         <div class="summary-value">\${summary.totalParagraphs}</div>
@@ -393,6 +473,101 @@ function getWebviewContent(webview: vscode.Webview): string {
                     \`).join('')}
                 </div>
             \`;
+            
+            // 円グラフを描画
+            setTimeout(() => {
+                drawCharts(charts);
+            }, 100);
+        }
+        
+        function drawCharts(charts) {
+            // 既存のチャートインスタンスがあれば破棄
+            if (window.characterBalanceChart) {
+                window.characterBalanceChart.destroy();
+            }
+            if (window.joyoKanjiChart) {
+                window.joyoKanjiChart.destroy();
+            }
+            
+            // 文字種バランス円グラフ
+            const balanceCtx = document.getElementById('characterBalanceChart');
+            if (balanceCtx && charts.characterBalance) {
+                window.characterBalanceChart = new Chart(balanceCtx, {
+                    type: 'pie',
+                    data: charts.characterBalance,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: 'var(--vscode-foreground)',
+                                    font: {
+                                        size: 11
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return \`\${context.label}: \${context.parsed}文字 (\${percentage}%)\`;
+                                    }
+                                }
+                            }
+                        },
+                        elements: {
+                            arc: {
+                                borderWidth: 1,
+                                borderColor: 'var(--vscode-panel-border)'
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 常用漢字使用率円グラフ
+            const joyoCtx = document.getElementById('joyoKanjiChart');
+            if (joyoCtx && charts.joyoKanjiUsage) {
+                window.joyoKanjiChart = new Chart(joyoCtx, {
+                    type: 'pie',
+                    data: charts.joyoKanjiUsage,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: 'var(--vscode-foreground)',
+                                    font: {
+                                        size: 11
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                                        return \`\${context.label}: \${context.parsed}文字 (\${percentage}%)\`;
+                                    }
+                                }
+                            }
+                        },
+                        elements: {
+                            arc: {
+                                borderWidth: 1,
+                                borderColor: 'var(--vscode-panel-border)'
+                            }
+                        }
+                    }
+                });
+            }
         }
         
         function jumpToParagraph(paragraphId, range) {

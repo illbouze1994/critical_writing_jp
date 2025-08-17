@@ -222,5 +222,13 @@
     "jest": "^30.0.5",
     "ts-jest": "^29.4.1",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@types/chart.js": "^2.9.41",
+    "chart.js": "^4.5.0",
+    "joyo-kanji": "^0.2.1",
+    "kuromoji": "^0.1.2",
+    "textlint-rule-ja-joyo-or-jinmeiyo-kanji": "^1.0.3",
+    "textlint-rule-preset-jtf-style": "^3.0.2"
   }
 }
