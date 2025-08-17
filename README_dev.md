@@ -118,19 +118,34 @@ VS Code設定（`Ctrl+,`）で「criticalWritingJp」を検索し、以下の項
 ### 単体テスト
 
 ```bash
-# 単体テストの実行
+# 全テストの実行
+npm test
+
+# カバレッジ付きテスト実行
 npm run test:unit
 
-# テストカバレッジの確認
+# テストカバレッジレポートの生成
 npm run test:coverage
+
+# ウォッチモードでテスト実行
+npm run test:watch
 ```
 
-### 統合テスト
+### ⚠️ 重要：拡張機能の正しいテスト方法
 
+**❌ 間違った方法：**
 ```bash
-# 統合テストの実行
-npm run test:integration
+# これは動作しません！
+node .\dist\extension.js
+# エラー: Cannot find module 'vscode'
 ```
+
+**✅ 正しい方法：**
+1. VS Codeでプロジェクトを開く
+2. `F5`キーを押して Extension Development Host を起動
+3. 新しいVS Codeウィンドウで拡張機能をテスト
+
+VS Code拡張機能は特別なランタイム環境（Extension Host）で動作するため、通常のNode.jsでは実行できません。
 
 ### 手動テスト手順
 
