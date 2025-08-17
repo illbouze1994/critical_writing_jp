@@ -4,6 +4,14 @@
   "description": "日本語学術・技術文書の執筆支援拡張機能",
   "version": "1.0.0",
   "publisher": "your-publisher",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-organization/critical-writing-jp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-organization/critical-writing-jp/issues"
+  },
+  "homepage": "https://github.com/your-organization/critical-writing-jp#readme",
   "engines": {
     "vscode": "^1.99.0"
   },
