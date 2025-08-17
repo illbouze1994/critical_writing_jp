@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "declaration": false,
+    "outDir": "out",
+    "lib": ["ES2022"],
+    "types": ["node", "vscode"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/__tests__/**", "scripts/**", "node_modules", "out", "dist"]
+}
