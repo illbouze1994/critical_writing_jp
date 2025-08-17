@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { DisposableStore } from './platform/disposable-store';
 import { Settings } from './platform/settings';
+import { initializeAnalyzer } from './features/analyzer';
 
 let globalSettings: Settings;
 
@@ -17,6 +18,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   // グローバル設定インスタンスを初期化
   globalSettings = new Settings();
+
+  // アナライザーを初期化（エンジン統合）
+  initializeAnalyzer(context);
 
   try {
     // 基本コマンドの登録（遅延ロード）

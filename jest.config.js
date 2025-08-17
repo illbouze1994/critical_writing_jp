@@ -26,7 +26,15 @@ module.exports = {
     }
   },
   moduleNameMapper: {
-    '^vscode$': '<rootDir>/src/__tests__/__mocks__/vscode.ts'
+    '^vscode$': '<rootDir>/src/__tests__/__mocks__/vscode.ts',
+    '^../features/keyword-engine$': '<rootDir>/src/__tests__/__mocks__/keyword-engine.ts',
+    '^../features/roi-engine$': '<rootDir>/src/__tests__/__mocks__/roi-engine.ts',
+    '^../features/style-checker$': '<rootDir>/src/__tests__/__mocks__/style-checker.ts',
+    '^../features/citation-checker$': '<rootDir>/src/__tests__/__mocks__/citation-checker.ts',
+    '^./keyword-engine$': '<rootDir>/src/__tests__/__mocks__/keyword-engine.ts',
+    '^./roi-engine$': '<rootDir>/src/__tests__/__mocks__/roi-engine.ts',
+    '^./style-checker$': '<rootDir>/src/__tests__/__mocks__/style-checker.ts',
+    '^./citation-checker$': '<rootDir>/src/__tests__/__mocks__/citation-checker.ts'
   },
   testTimeout: 10000,
   verbose: true

@@ -1,13 +1,19 @@
 import * as vscode from 'vscode';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
-import { getSettings } from '../extension';
+import { keywordEngine } from './keyword-engine';
+import { roiEngine } from './roi-engine';
+import { styleChecker } from './style-checker';
+import { citationChecker } from './citation-checker';
 
 // デバウンス処理済みの解析関数
 const debouncedAnalysis = debounce(performAnalysis, 150);
 
 // 解析結果のキャッシュ（ドキュメントURIをキー）
 const analysisCache = new Map<string, AnalysisResult>();
+
+// 診断情報コレクション
+let diagnosticCollection: vscode.DiagnosticCollection;
 
 /**
  * テキスト変更イベントの処理
@@ -53,12 +59,33 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     // 段落の検出と解析
     const paragraphs = detectParagraphs(document);
     
+    // 設定を取得
+    const config = vscode.workspace.getConfiguration('criticalWritingJp');
+    const keywordMode = config.get<'rules' | 'tfidf' | 'embed'>('keyword.mode', 'rules');
+    const roiWeights = config.get('roi.weights', { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 });
+    
+    // キーワード抽出
+    console.log(`[Analyzer] Extracting keywords (mode: ${keywordMode})`);
+    const keywords = await keywordEngine.extractKeywords(paragraphs, keywordMode);
+    
+    // ROIスコア計算
+    console.log(`[Analyzer] Calculating ROI scores`);
+    const scores = roiEngine.calculateROI(paragraphs, keywords, roiWeights);
+    
+    // スタイルチェック（辞書が読み込まれている場合のみ）
+    console.log(`[Analyzer] Checking style violations`);
+    const styleViolations = styleChecker.checkStyle(document, paragraphs);
+    
+    // 引用スタイルチェック
+    console.log(`[Analyzer] Validating citation style`);
+    const citationViolations = citationChecker.validateCitationStyle(document, paragraphs);
+    
     // 解析結果を作成
     const result: AnalysisResult = {
       documentUri: document.uri.toString(),
       paragraphs,
-      keywords: new Map(), // 将来実装
-      scores: new Map(),   // 将来実装
+      keywords,
+      scores,
       timestamp: Date.now()
     };
     
@@ -66,7 +93,10 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     analysisCache.set(document.uri.toString(), result);
     
     const elapsedTime = Date.now() - startTime;
-    console.log(`[Analyzer] Analysis completed in ${elapsedTime}ms (${paragraphs.length} paragraphs)`);
+    console.log(`[Analyzer] Analysis completed in ${elapsedTime}ms (${paragraphs.length} paragraphs, ${keywords.size} keyword sets, ${scores.size} scores)`);
+    
+    // 診断情報を更新
+    updateDiagnostics(document, styleViolations, citationViolations);
     
     return result;
   } catch (error) {
@@ -396,7 +426,15 @@ async function updateEditorDecorations(
     return;
   }
   
-  const settings = getSettings();
+  const config = vscode.workspace.getConfiguration('criticalWritingJp');
+  const settings = {
+    counting: {
+      threshold: {
+        min: config.get<number>('counting.threshold.min', 200),
+        max: config.get<number>('counting.threshold.max', 800)
+      }
+    }
+  };
   const { min, max } = settings.counting.threshold;
   
   // 装飾タイプを作成（初回のみ）
@@ -474,4 +512,50 @@ function updateStatusBar(result: AnalysisResult, settings: any): void {
  */
 export function getCachedAnalysisResult(documentUri: string): AnalysisResult | undefined {
   return analysisCache.get(documentUri);
+}
+
+/**
+ * アナライザーの初期化
+ * @param context 拡張機能コンテキスト
+ */
+export function initializeAnalyzer(context: vscode.ExtensionContext): void {
+  // 診断情報コレクションを作成
+  diagnosticCollection = vscode.languages.createDiagnosticCollection('criticalWritingJp');
+  context.subscriptions.push(diagnosticCollection);
+
+  // 引用チェッカーのデフォルトスタイルを初期化
+  citationChecker.initializeDefaultStyles();
+
+  console.log('[Analyzer] Initialized with diagnostic collection');
+}
+
+/**
+ * 診断情報を更新
+ * @param document 対象ドキュメント
+ * @param styleViolations スタイル違反
+ * @param citationViolations 引用違反
+ */
+function updateDiagnostics(
+  document: vscode.TextDocument,
+  styleViolations: any[],
+  citationViolations: any[]
+): void {
+  if (!diagnosticCollection) {
+    return;
+  }
+
+  const diagnostics: vscode.Diagnostic[] = [];
+
+  // スタイル違反の診断情報を追加
+  const styleDiagnostics = styleChecker.createDiagnostics(styleViolations);
+  diagnostics.push(...styleDiagnostics);
+
+  // 引用違反の診断情報を追加
+  const citationDiagnostics = citationChecker.createDiagnostics(citationViolations);
+  diagnostics.push(...citationDiagnostics);
+
+  // 診断情報を設定
+  diagnosticCollection.set(document.uri, diagnostics);
+
+  console.log(`[Analyzer] Updated diagnostics: ${diagnostics.length} issues found`);
 }

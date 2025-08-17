@@ -101,6 +101,14 @@ export const commands = {
   executeCommand: jest.fn()
 };
 
+export const languages = {
+  createDiagnosticCollection: jest.fn().mockReturnValue({
+    set: jest.fn(),
+    clear: jest.fn(),
+    dispose: jest.fn()
+  })
+};
+
 // Mock TextDocument
 export class MockTextDocument {
   constructor(
