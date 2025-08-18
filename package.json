@@ -3,7 +3,8 @@
   "displayName": "CriticalWritingJp",
   "description": "日本語学術・技術文書の執筆支援拡張機能",
   "version": "1.0.0",
-  "publisher": "your-publisher",
+  "publisher": "local-dev",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/your-organization/critical-writing-jp.git"
@@ -236,9 +237,7 @@
     "chart.js": "^4.5.0",
     "joyo-kanji": "^0.2.1",
     "kuromoji": "^0.1.2",
-    "save-dev": "^0.0.1-security",
     "textlint-rule-ja-joyo-or-jinmeiyo-kanji": "^1.0.3",
-    "textlint-rule-preset-jtf-style": "^3.0.2",
-    "tslint": "^5.20.1"
+    "textlint-rule-preset-jtf-style": "^3.0.2"
   }
 }

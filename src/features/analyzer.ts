@@ -548,15 +548,42 @@ export function getCachedAnalysisResult(documentUri: string): AnalysisResult | u
  * アナライザーの初期化
  * @param context 拡張機能コンテキスト
  */
-export function initializeAnalyzer(context: vscode.ExtensionContext): void {
-  // 診断情報コレクションを作成
-  diagnosticCollection = vscode.languages.createDiagnosticCollection('criticalWritingJp');
-  context.subscriptions.push(diagnosticCollection);
+export async function initializeAnalyzer(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    // 診断情報コレクションを作成
+    diagnosticCollection = vscode.languages.createDiagnosticCollection('criticalWritingJp');
+    context.subscriptions.push(diagnosticCollection);
 
-  // 引用チェッカーのデフォルトスタイルを初期化
-  citationChecker.initializeDefaultStyles();
+    // 引用チェッカーのデフォルトスタイルを初期化
+    try {
+      citationChecker.initializeDefaultStyles();
+      console.log('[Analyzer] Citation checker initialized');
+    } catch (error) {
+      console.warn('[Analyzer] Failed to initialize citation checker:', error);
+    }
 
-  console.log('[Analyzer] Initialized with diagnostic collection');
+    // キーワードエンジンの事前初期化（非同期、エラーは無視）
+    try {
+      // キーワードエンジンの初期化を試行（失敗しても継続）
+      setTimeout(async () => {
+        try {
+          const { keywordEngine } = await import('./keyword-engine');
+          // 空の段落で初期化テスト
+          await keywordEngine.extractKeywords([], 'rules');
+          console.log('[Analyzer] Keyword engine pre-initialized');
+        } catch (error) {
+          console.warn('[Analyzer] Keyword engine pre-initialization failed:', error);
+        }
+      }, 1000);
+    } catch (error) {
+      console.warn('[Analyzer] Failed to start keyword engine initialization:', error);
+    }
+
+    console.log('[Analyzer] Initialized with diagnostic collection');
+  } catch (error) {
+    console.error('[Analyzer] Critical error during initialization:', error);
+    throw error; // 重要なエラーのみ再スロー
+  }
 }
 
 /**

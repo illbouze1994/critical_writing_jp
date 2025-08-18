@@ -52,19 +52,65 @@ export class KeywordEngine {
       return;
     }
 
-    return new Promise((resolve, reject) => {
-      kuromoji.builder({ dicPath: 'node_modules/kuromoji/dict' }).build((err, tokenizer) => {
-        if (err) {
-          console.error('[KeywordEngine] Failed to initialize kuromoji tokenizer:', err);
-          reject(err);
-          return;
-        }
+    return new Promise((resolve) => {
+      try {
+        console.log('[KeywordEngine] Starting kuromoji tokenizer initialization...');
         
-        this.tokenizer = tokenizer;
+        // タイムアウト設定（10秒）
+        const timeoutId = setTimeout(() => {
+          console.warn('[KeywordEngine] Kuromoji initialization timeout (10s), falling back to rule-based mode');
+          this.isInitialized = true;
+          resolve();
+        }, 10000);
+
+        // Try different possible dictionary paths
+        const possiblePaths = [
+          'node_modules/kuromoji/dict',
+          './node_modules/kuromoji/dict',
+          '../node_modules/kuromoji/dict',
+          '../../node_modules/kuromoji/dict'
+        ];
+
+        let currentPathIndex = 0;
+        
+        const tryNextPath = () => {
+          if (currentPathIndex >= possiblePaths.length) {
+            console.error('[KeywordEngine] All dictionary paths failed, falling back to rule-based extraction');
+            clearTimeout(timeoutId);
+            this.isInitialized = true;
+            resolve();
+            return;
+          }
+
+          const dicPath = possiblePaths[currentPathIndex];
+          console.log(`[KeywordEngine] Trying dictionary path: ${dicPath}`);
+          currentPathIndex++;
+
+          kuromoji.builder({ dicPath }).build((err, tokenizer) => {
+            if (err) {
+              console.error(`[KeywordEngine] Failed with path '${dicPath}':`, err);
+              console.log('[KeywordEngine] Trying next dictionary path...');
+              tryNextPath();
+              return;
+            }
+            
+            console.log(`[KeywordEngine] Successfully initialized kuromoji with path: ${dicPath}`);
+            clearTimeout(timeoutId);
+            this.tokenizer = tokenizer;
+            this.isInitialized = true;
+            resolve();
+          });
+        };
+
+        tryNextPath();
+
+      } catch (error) {
+        console.error('[KeywordEngine] Exception during tokenizer initialization:', error);
+        console.log('[KeywordEngine] Falling back to rule-based extraction');
+        // 例外が発生してもフォールバックモードで動作
         this.isInitialized = true;
-        console.log('[KeywordEngine] Kuromoji tokenizer initialized successfully');
         resolve();
-      });
+      }
     });
   }
 
@@ -127,45 +173,85 @@ export class KeywordEngine {
       return this.extractKeywordsByRules(paragraph);
     }
 
-    const normalizedText = normalizeText(paragraph.text);
-    const tokens = this.tokenizer.tokenize(normalizedText);
-    const candidates = new Map<string, { count: number; score: number; pos: string }>();
+    try {
+      const normalizedText = normalizeText(paragraph.text);
+      if (!normalizedText || normalizedText.trim() === '') {
+        console.warn('[KeywordEngine] Empty normalized text, returning empty keywords');
+        return [];
+      }
 
-    // 形態素解析結果から名詞、動詞、形容詞、固有名詞を抽出
-    for (const token of tokens) {
-      const { surface_form, pos, pos_detail_1 } = token;
+      const tokens = this.tokenizer.tokenize(normalizedText);
       
-      // 品詞フィルタリング（名詞、動詞、形容詞、固有名詞）
-      if (this.shouldIncludeMorpheme(pos, pos_detail_1, surface_form)) {
-        const existing = candidates.get(surface_form);
-        if (existing) {
-          existing.count++;
-          existing.score = this.calculateMorphemeScore(surface_form, existing.count, pos, pos_detail_1);
-        } else {
-          const score = this.calculateMorphemeScore(surface_form, 1, pos, pos_detail_1);
-          candidates.set(surface_form, { count: 1, score, pos: `${pos}-${pos_detail_1}` });
+      // Null/undefined check for tokens
+      if (!tokens || !Array.isArray(tokens)) {
+        console.warn('[KeywordEngine] Tokenization failed or returned invalid result, falling back to rule-based extraction');
+        return this.extractKeywordsByRules(paragraph);
+      }
+
+      const candidates = new Map<string, { count: number; score: number; pos: string }>();
+
+      // 形態素解析結果から名詞、動詞、形容詞、固有名詞を抽出
+      for (const token of tokens) {
+        if (!token || typeof token !== 'object') {
+          console.warn('[KeywordEngine] Invalid token encountered, skipping:', token);
+          continue;
+        }
+
+        const { surface_form, pos, pos_detail_1 } = token;
+        
+        // Ensure token properties are strings
+        if (typeof surface_form !== 'string' || typeof pos !== 'string' || typeof pos_detail_1 !== 'string') {
+          console.warn('[KeywordEngine] Token with invalid properties, skipping:', token);
+          continue;
+        }
+        
+        // 品詞フィルタリング（名詞、動詞、形容詞、固有名詞）
+        if (this.shouldIncludeMorpheme(pos, pos_detail_1, surface_form)) {
+          const existing = candidates.get(surface_form);
+          if (existing) {
+            existing.count++;
+            existing.score = this.calculateMorphemeScore(surface_form, existing.count, pos, pos_detail_1);
+          } else {
+            const score = this.calculateMorphemeScore(surface_form, 1, pos, pos_detail_1);
+            candidates.set(surface_form, { count: 1, score, pos: `${pos}-${pos_detail_1}` });
+          }
         }
       }
-    }
 
-    // 結果を構築
-    const keywords: Keyword[] = [];
-    for (const [text, data] of candidates.entries()) {
-      // 常用漢字以外の漢字を含む固有名詞は除外（仕様要件）
-      if (data.pos.includes('固有名詞') && this.calculateJoyoKanjiUsage(text) < 0.8) {
-        continue;
+      // 結果を構築 - Safe iteration over Map
+      const keywords: Keyword[] = [];
+      if (candidates && candidates.size > 0) {
+        // Use Array.from to safely iterate over Map entries
+        const candidateEntries = Array.from(candidates.entries());
+        for (const [text, data] of candidateEntries) {
+          // Validate data object
+          if (!data || typeof data !== 'object') {
+            console.warn('[KeywordEngine] Invalid data object for text:', text);
+            continue;
+          }
+
+          // 常用漢字以外の漢字を含む固有名詞は除外（仕様要件）
+          if (data.pos && data.pos.includes('固有名詞') && this.calculateJoyoKanjiUsage(text) < 0.8) {
+            continue;
+          }
+
+          keywords.push({
+            text,
+            score: data.score || 0,
+            frequency: data.count || 0,
+            partOfSpeech: data.pos || 'unknown'
+          });
+        }
       }
 
-      keywords.push({
-        text,
-        score: data.score,
-        frequency: data.count,
-        partOfSpeech: data.pos
-      });
-    }
+      // スコア順でソート
+      return keywords.sort((a, b) => b.score - a.score).slice(0, 20);
 
-    // スコア順でソート
-    return keywords.sort((a, b) => b.score - a.score).slice(0, 20);
+    } catch (error) {
+      console.error('[KeywordEngine] Error in morphological analysis:', error);
+      console.log('[KeywordEngine] Falling back to rule-based extraction due to error');
+      return this.extractKeywordsByRules(paragraph);
+    }
   }
 
   /**

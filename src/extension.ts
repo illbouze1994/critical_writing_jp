@@ -16,18 +16,34 @@ export function activate(context: vscode.ExtensionContext) {
   const store = new DisposableStore();
   context.subscriptions.push(store);
 
-  // グローバル設定インスタンスを初期化
-  globalSettings = new Settings();
-
-  // アナライザーを初期化（エンジン統合）
-  initializeAnalyzer(context);
-
   try {
-    // 基本コマンドの登録（遅延ロード）
-    registerCommands(store, context);
+    // Step 1: Initialize global settings first
+    console.log('[CriticalWritingJp] Step 1: Initializing global settings');
+    globalSettings = new Settings();
+    console.log('[CriticalWritingJp] Global settings initialized successfully');
 
-    // Markdown言語でのテキスト変更監視の登録
+    // Step 2: Register all commands IMMEDIATELY (synchronously)
+    console.log('[CriticalWritingJp] Step 2: Registering commands');
+    registerCommands(store, context);
+    console.log('[CriticalWritingJp] All commands registered successfully');
+
+    // Step 3: Register document handlers
+    console.log('[CriticalWritingJp] Step 3: Registering document handlers');
     registerTextDocumentHandlers(store, context);
+    console.log('[CriticalWritingJp] Document handlers registered successfully');
+
+    // Step 4: Heavy initialization happens AFTER command registration
+    setTimeout(async () => {
+      console.log('[CriticalWritingJp] Step 4: Starting analyzer initialization (async)');
+      try {
+        await initializeAnalyzer(context);
+        console.log('[CriticalWritingJp] Analyzer initialized successfully');
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to initialize analyzer:', error);
+        // アナライザー初期化失敗は警告のみ（拡張機能は基本機能で動作継続）
+        vscode.window.showWarningMessage('一部の解析機能が無効になっています');
+      }
+    }, 100);
 
     // 設定変更監視
     store.add(globalSettings.onDidChange((newSettings) => {
@@ -88,8 +104,19 @@ function registerTogglePanelCommand(store: DisposableStore, context: vscode.Exte
     withErrorHandling(
       async () => {
         // 初回実行時のみWebviewパネル機能を動的ロード
-        const { createOrShowPanel } = await import('./features/panel');
-        await createOrShowPanel(context);
+        try {
+          const mod = await import('./features/panel');
+          await mod.createOrShowPanel(context);
+        } catch (errPrimary) {
+          console.warn('[CriticalWritingJp] Failed to load ./features/panel, trying fallback ./features/webview-panel', errPrimary);
+          try {
+            const modFallback = await import('./features/webview-panel');
+            await modFallback.createOrShowPanel(context);
+          } catch (errFallback) {
+            console.error('[CriticalWritingJp] Failed to load both panel modules', { errPrimary, errFallback });
+            throw errFallback;
+          }
+        }
       },
       'Failed to toggle panel',
       'パネルの表示に失敗しました'
@@ -246,8 +273,18 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       await runAnalysis(editor.document);
 
       // Markdownファイルが開かれた時に自動的にパネルを表示
-      const { createOrShowPanel } = await import('./features/panel');
-      await createOrShowPanel(context);
+      try {
+        const mod = await import('./features/panel');
+        await mod.createOrShowPanel(context);
+      } catch (errPrimary) {
+        console.warn('[CriticalWritingJp] Failed to load ./features/panel on editor change, trying fallback ./features/webview-panel', errPrimary);
+        try {
+          const modFallback = await import('./features/webview-panel');
+          await modFallback.createOrShowPanel(context);
+        } catch (errFallback) {
+          console.warn('[CriticalWritingJp] Failed to auto-open panel with both modules', { errPrimary, errFallback });
+        }
+      }
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);
     }
