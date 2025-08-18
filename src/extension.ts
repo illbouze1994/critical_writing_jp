@@ -4,6 +4,7 @@ import { Settings } from './platform/settings';
 import { initializeAnalyzer } from './features/analyzer';
 
 let globalSettings: Settings;
+let lastActiveMarkdownEditor: vscode.TextEditor | undefined;
 
 /**
  * 拡張機能のアクティベーション
@@ -12,6 +13,11 @@ let globalSettings: Settings;
 export function activate(context: vscode.ExtensionContext) {
   console.log('[CriticalWritingJp] Activating extension...');
   
+  // 初期アクティブエディタを設定
+  if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId === 'markdown') {
+    lastActiveMarkdownEditor = vscode.window.activeTextEditor;
+  }
+
   const startTime = Date.now();
   const store = new DisposableStore();
   context.subscriptions.push(store);
@@ -182,8 +188,7 @@ function registerConfigureGoogleBooksKeyCommand(store: DisposableStore, context:
 function registerRunKeywordNowCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.runKeywordNow', async () => {
     try {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || editor.document.languageId !== 'markdown') {
+      if (!lastActiveMarkdownEditor || lastActiveMarkdownEditor.document.isClosed) {
         vscode.window.showWarningMessage('Markdownファイルを開いてください');
         return;
       }
@@ -191,7 +196,7 @@ function registerRunKeywordNowCommand(store: DisposableStore) {
       vscode.window.showInformationMessage('キーワード解析を実行中...');
       // 実際の解析処理は遅延ロード
       const { runAnalysis } = await import('./features/analyzer');
-      await runAnalysis(editor.document);
+      await runAnalysis(lastActiveMarkdownEditor.document);
       vscode.window.showInformationMessage('キーワード解析が完了しました');
     } catch (error) {
       console.error('[CriticalWritingJp] Failed to run keyword analysis:', error);
@@ -267,6 +272,7 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       if (!editor || editor.document.languageId !== 'markdown') {
         return;
       }
+      lastActiveMarkdownEditor = editor;
 
       // 新しいMarkdownファイルが開かれた時の初期解析
       const { runAnalysis } = await import('./features/analyzer');
