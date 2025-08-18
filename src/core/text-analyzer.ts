@@ -36,7 +36,7 @@ export interface CharacterAnalysis {
  * 文字種分析を行うクラス
  */
 export class TextAnalyzer {
-  private static joyoKanjiSet: Set<string> = new Set(joyoKanji);
+  private static joyoKanjiSet: Set<string> = new Set(joyoKanji.kanji);
 
   /**
    * テキストの文字種分析を行う

@@ -197,6 +197,11 @@ function registerRunKeywordNowCommand(store: DisposableStore) {
       // 実際の解析処理は遅延ロード
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(lastActiveMarkdownEditor.document);
+
+      // パネルの表示を更新
+      const { updatePanel } = await import('./features/panel');
+      await updatePanel();
+
       vscode.window.showInformationMessage('キーワード解析が完了しました');
     } catch (error) {
       console.error('[CriticalWritingJp] Failed to run keyword analysis:', error);
