@@ -3,7 +3,7 @@
   "displayName": "CriticalWritingJp",
   "description": "日本語学術・技術文書の執筆支援拡張機能",
   "version": "1.0.0",
-  "publisher": "local-dev",
+  "publisher": "your-publisher",
   "private": true,
   "repository": {
     "type": "git",
@@ -32,6 +32,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:markdown",
+    "onLanguage:plaintext",
     "onCommand:criticalWritingJp.togglePanel",
     "onCommand:criticalWritingJp.enableLLM",
     "onCommand:criticalWritingJp.configureGoogleBooksKey",
@@ -255,7 +256,16 @@
     "eslint": "^9.0.0",
     "jest": "^30.0.5",
     "ts-jest": "^29.4.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "atomize": "^1.0.28",
+    "react-transition-group": "^4.4.5",
+    "@types/react-transition-group": "^4.4.10",
+    "styletron-react": "5.2.7",
+    "styletron-engine-atomic": "^1.6.2"
   },
   "dependencies": {
     "@types/chart.js": "^2.9.41",

@@ -1,16 +1,24 @@
 import * as vscode from 'vscode';
 import { DisposableStore } from './platform/disposable-store';
 import { Settings } from './platform/settings';
-import { initializeAnalyzer } from './features/analyzer';
+import { initializeAnalyzer, disposeAnalyzer } from './features/analyzer';
 
 let globalSettings: Settings;
 let lastActiveMarkdownEditor: vscode.TextEditor | undefined;
+let extensionDisposables: DisposableStore | undefined;
 
 /**
  * 拡張機能のアクティベーション
  * 最小限の初期化のみ行い、重い処理は遅延ロードする
  */
 export function activate(context: vscode.ExtensionContext) {
+  // 開発中のリロード時に古いリソースが残らないように、最初にクリーンアップする
+  if (extensionDisposables) {
+    extensionDisposables.dispose();
+  }
+  extensionDisposables = new DisposableStore();
+  context.subscriptions.push(extensionDisposables);
+
   console.log('[CriticalWritingJp] Activating extension...');
   
   // 初期アクティブエディタを設定
@@ -22,8 +30,6 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   const startTime = Date.now();
-  const store = new DisposableStore();
-  context.subscriptions.push(store);
 
   try {
     // Step 1: Initialize global settings first
@@ -33,24 +39,25 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Step 2: Register all commands IMMEDIATELY (synchronously)
     console.log('[CriticalWritingJp] Step 2: Registering commands');
-    registerCommands(store, context);
+    registerCommands(extensionDisposables, context);
     console.log('[CriticalWritingJp] All commands registered successfully');
 
     // Step 3: Register document handlers
     console.log('[CriticalWritingJp] Step 3: Registering document handlers');
-    registerTextDocumentHandlers(store, context);
+    registerTextDocumentHandlers(extensionDisposables, context);
     console.log('[CriticalWritingJp] Document handlers registered successfully');
 
     // Step 4: Heavy initialization happens AFTER command registration
     setTimeout(async () => {
       console.log('[CriticalWritingJp] Step 4: Starting analyzer initialization (async)');
       try {
-        await initializeAnalyzer(context);
+        // アナライザーに DisposableStore を渡して、管理対象のリソースを登録させる
+        await initializeAnalyzer(context, extensionDisposables);
         console.log('[CriticalWritingJp] Analyzer initialized successfully');
 
         // 初期状態でMarkdownエディタが開かれている場合は解析を実行
         const editor = vscode.window.activeTextEditor;
-        if (editor && editor.document.languageId === 'markdown' && !editor.document.isClosed) {
+        if (editor && (editor.document.languageId === 'markdown' || editor.document.languageId === 'plaintext') && !editor.document.isClosed) {
           lastActiveMarkdownEditor = editor;
           const { runAnalysis } = await import('./features/analyzer');
           await runAnalysis(editor.document);
@@ -79,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
     }, 100);
 
     // 設定変更監視
-    store.add(globalSettings.onDidChange((newSettings) => {
+    extensionDisposables.add(globalSettings.onDidChange((newSettings) => {
       console.log('[CriticalWritingJp] Settings changed');
       globalSettings = newSettings;
     }));
@@ -108,7 +115,11 @@ export function activate(context: vscode.ExtensionContext) {
  */
 export function deactivate() {
   console.log('[CriticalWritingJp] Deactivating extension...');
-  // context.subscriptions に登録されたDisposableStoreが自動的に破棄される
+  if (extensionDisposables) {
+    extensionDisposables.dispose();
+    extensionDisposables = undefined;
+  }
+  disposeAnalyzer(); // アナライザー内のリソースも破棄
 }
 
 /**
@@ -265,16 +276,38 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
   registerRunKeywordNowCommand(store);
   registerValidateCitationStyleCommand(store);
   registerFixStyleIssuesCommand(store);
+
+  // 新しいコマンドを登録
+  store.add(vscode.commands.registerCommand('criticalWritingJp.jumpToParagraphAndShowPanel', async (range: {start: number, end: number}) => {
+    try {
+      // パネルを表示
+      const { createOrShowPanel } = await import('./features/panel');
+      await createOrShowPanel(context);
+
+      // 指定された範囲にジャンプ
+      const editor = vscode.window.activeTextEditor;
+      if (editor && range) {
+        const startPos = editor.document.positionAt(range.start);
+        const endPos = editor.document.positionAt(range.end);
+        editor.selection = new vscode.Selection(startPos, endPos);
+        editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+      }
+    } catch (error) {
+      console.error('[CriticalWritingJp] Failed to jump to paragraph:', error);
+      vscode.window.showErrorMessage('指定段落へのジャンプに失敗しました');
+    }
+  }));
 }
 
 /**
  * テキストドキュメントのハンドラ登録
  */
 function registerTextDocumentHandlers(store: DisposableStore, context: vscode.ExtensionContext) {
-  // Markdownファイルのテキスト変更監視
+  // サポート対象言語のファイル変更を監視
   store.add(vscode.workspace.onDidChangeTextDocument(async (event) => {
     try {
-      if (event.document.languageId !== 'markdown') {
+      const lang = event.document.languageId;
+      if (lang !== 'markdown' && lang !== 'plaintext') {
         return;
       }
 
@@ -291,12 +324,14 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
   // アクティブエディタ変更監視
   store.add(vscode.window.onDidChangeActiveTextEditor(async (editor) => {
     try {
-      if (!editor || editor.document.languageId !== 'markdown') {
+      if (!editor) return;
+      const lang = editor.document.languageId;
+      if (lang !== 'markdown' && lang !== 'plaintext') {
         return;
       }
       lastActiveMarkdownEditor = editor;
 
-      // 新しいMarkdownファイルが開かれた時の初期解析
+      // 新しいファイルが開かれた時の初期解析
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
 
