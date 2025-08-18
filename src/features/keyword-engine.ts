@@ -28,7 +28,7 @@ export class KeywordEngine {
     ]);
 
     // 常用漢字セットの初期化
-    this.joyoKanjiSet = new Set(joyoKanji);
+    this.joyoKanjiSet = new Set(joyoKanji.kanji);
 
     // キーワード候補となるパターン
     this.keywordPatterns = [
