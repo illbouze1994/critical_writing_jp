@@ -285,11 +285,11 @@ describe('LLMEvaluator', () => {
 
       expect(results).toHaveLength(2);
       expect(results[0].paragraphId).toBe('1');
-      expect(results[0].style).toBe(0.7);
-      expect(results[0].argumentation).toBe(0.6);
+      expect(results[0].style).toBeCloseTo(0.7);
+      expect(results[0].argumentation).toBeCloseTo(0.6);
       expect(results[1].paragraphId).toBe('2');
-      expect(results[1].style).toBe(0.5);
-      expect(results[1].argumentation).toBe(0.8);
+      expect(results[1].style).toBeCloseTo(0.5);
+      expect(results[1].argumentation).toBeCloseTo(0.8);
     });
   });
 

@@ -228,14 +228,12 @@ export class WebviewPanel {
     }
 
     const webview = this.panel.webview;
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js')
+    );
     
     // CSPのnonce生成
     const nonce = this.generateNonce();
-    
-    // スタイルファイルのURI
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'webview-assets', 'styles.css')
-    );
 
     return `<!DOCTYPE html>
 <html lang="ja">
@@ -244,262 +242,19 @@ export class WebviewPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
-        style-src ${webview.cspSource} 'nonce-${nonce}';
+        style-src ${webview.cspSource} 'unsafe-inline';
         script-src 'nonce-${nonce}';
         img-src ${webview.cspSource} data:;
-        font-src ${webview.cspSource};
+        font-src https://fonts.gstatic.com;
     ">
-    <link href="${styleUri}" rel="stylesheet" nonce="${nonce}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <title>CriticalWriting分析結果</title>
 </head>
 <body>
-    <div id="app">
-        <header class="panel-header">
-            <h1>📚 文書解析結果</h1>
-            <div class="status-indicators">
-                <div id="llm-status" class="status-indicator" title="LLM機能の状態">
-                    <span class="indicator-icon">🤖</span>
-                    <span id="llm-status-text">未有効</span>
-                </div>
-                <div id="books-status" class="status-indicator" title="Google Books API状態">
-                    <span class="indicator-icon">📖</span>
-                    <span id="books-status-text">未設定</span>
-                </div>
-            </div>
-        </header>
-
-        <section class="summary-section">
-            <div class="summary-card">
-                <h3>📊 文書統計</h3>
-                <div class="summary-stats">
-                    <div class="stat-item">
-                        <span class="stat-value" id="total-paragraphs">-</span>
-                        <span class="stat-label">総段落数</span>
-                    </div>
-                    <div class="stat-item warning">
-                        <span class="stat-value" id="over-threshold">-</span>
-                        <span class="stat-label">閾値超過</span>
-                    </div>
-                    <div class="stat-item info">
-                        <span class="stat-value" id="under-threshold">-</span>
-                        <span class="stat-label">閾値未満</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="controls-section">
-            <div class="action-buttons">
-                <button id="enable-llm-btn" class="action-btn">
-                    🤖 LLM機能を有効化
-                </button>
-                <button id="configure-books-btn" class="action-btn">
-                    📖 Google Books設定
-                </button>
-                <button id="refresh-analysis-btn" class="action-btn">
-                    🔄 解析を再実行
-                </button>
-            </div>
-        </section>
-
-        <section class="results-section">
-            <h3>📝 段落別詳細</h3>
-            <div class="results-table-container">
-                <table id="results-table" class="results-table">
-                    <thead>
-                        <tr>
-                            <th>段落</th>
-                            <th>文字数</th>
-                            <th>キーワード</th>
-                            <th>ROI</th>
-                            <th>LLM</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="results-tbody">
-                        <tr class="no-data">
-                            <td colspan="6">解析データがありません</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="books-section" id="books-section" style="display: none;">
-            <h3>📚 書籍検索結果</h3>
-            <div id="books-results" class="books-results">
-                <!-- 検索結果がここに表示される -->
-            </div>
-        </section>
-    </div>
-
-    <script nonce="${nonce}">
-        (function() {
-            const vscode = acquireVsCodeApi();
-            let currentData = null;
-
-            // VSCode拡張からのメッセージ受信
-            window.addEventListener('message', event => {
-                const message = event.data;
-                
-                switch (message.type) {
-                    case 'panel/update':
-                        updatePanelData(message.payload);
-                        break;
-                    case 'booksSearchResult':
-                        displayBooksResults(message.paragraphId, message.results);
-                        break;
-                    case 'llmStatusUpdate':
-                        updateLLMStatus(message.enabled);
-                        break;
-                }
-            });
-
-            // パネルデータの更新
-            function updatePanelData(payload) {
-                currentData = payload;
-                
-                // 統計の更新
-                document.getElementById('total-paragraphs').textContent = payload.summary.total;
-                document.getElementById('over-threshold').textContent = payload.summary.over;
-                document.getElementById('under-threshold').textContent = payload.summary.under;
-                
-                // 結果テーブルの更新
-                updateResultsTable(payload.rows);
-            }
-
-            // 結果テーブルの更新
-            function updateResultsTable(rows) {
-                const tbody = document.getElementById('results-tbody');
-                tbody.innerHTML = '';
-                
-                if (rows.length === 0) {
-                    tbody.innerHTML = '<tr class="no-data"><td colspan="6">解析データがありません</td></tr>';
-                    return;
-                }
-                
-                rows.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = \`
-                        <td class="paragraph-preview">
-                            <span class="paragraph-text">\${escapeHtml(row.head)}</span>
-                        </td>
-                        <td class="char-count \${getCharCountClass(row.chars)}">\${row.chars}</td>
-                        <td class="keywords">
-                            \${row.kw.map(kw => \`<span class="keyword-tag">\${escapeHtml(kw)}</span>\`).join('')}
-                        </td>
-                        <td class="roi-score">\${row.roi !== undefined ? row.roi.toFixed(2) : '-'}</td>
-                        <td class="llm-score">\${row.llm !== undefined ? row.llm.toFixed(2) : '-'}</td>
-                        <td class="actions">
-                            <button class="action-btn-small jump-btn" data-paragraph-id="\${row.id}">
-                                ジャンプ
-                            </button>
-                            <button class="action-btn-small search-books-btn" data-paragraph-id="\${row.id}">
-                                書籍検索
-                            </button>
-                        </td>
-                    \`;
-                    tbody.appendChild(tr);
-                });
-                
-                // イベントリスナーの追加
-                addTableEventListeners();
-            }
-
-            // テーブルのイベントリスナー追加
-            function addTableEventListeners() {
-                // ジャンプボタン
-                document.querySelectorAll('.jump-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const paragraphId = e.target.dataset.paragraphId;
-                        vscode.postMessage({
-                            command: 'jumpToParagraph',
-                            paragraphId: paragraphId
-                        });
-                    });
-                });
-                
-                // 書籍検索ボタン
-                document.querySelectorAll('.search-books-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const paragraphId = e.target.dataset.paragraphId;
-                        const row = currentData.rows.find(r => r.id === paragraphId);
-                        if (row) {
-                            vscode.postMessage({
-                                command: 'requestBooksSearch',
-                                paragraphId: paragraphId,
-                                searchPhrase: row.head
-                            });
-                        }
-                    });
-                });
-            }
-
-            // 書籍検索結果の表示
-            function displayBooksResults(paragraphId, results) {
-                const section = document.getElementById('books-section');
-                const container = document.getElementById('books-results');
-                
-                container.innerHTML = \`
-                    <h4>段落「\${paragraphId}」の検索結果</h4>
-                    <div class="books-list">
-                        \${results.map(book => \`
-                            <div class="book-item">
-                                <div class="book-title">\${escapeHtml(book.title)}</div>
-                                <div class="book-author">\${escapeHtml(book.author)}</div>
-                                \${book.year ? \`<div class="book-year">\${book.year}</div>\` : ''}
-                                \${book.snippet ? \`<div class="book-snippet">\${escapeHtml(book.snippet)}</div>\` : ''}
-                                \${book.url ? \`<a href="\${book.url}" class="book-url" target="_blank">詳細を見る</a>\` : ''}
-                            </div>
-                        \`).join('')}
-                    </div>
-                \`;
-                
-                section.style.display = 'block';
-            }
-
-            // LLMステータスの更新
-            function updateLLMStatus(enabled) {
-                const statusText = document.getElementById('llm-status-text');
-                const indicator = document.getElementById('llm-status');
-                
-                if (enabled) {
-                    statusText.textContent = '有効';
-                    indicator.classList.add('enabled');
-                } else {
-                    statusText.textContent = '無効';
-                    indicator.classList.remove('enabled');
-                }
-            }
-
-            // 文字数のクラス判定
-            function getCharCountClass(chars) {
-                if (chars > 800) return 'over-threshold';
-                if (chars < 200) return 'under-threshold';
-                return 'normal';
-            }
-
-            // HTMLエスケープ
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            // アクションボタンのイベントリスナー
-            document.getElementById('enable-llm-btn').addEventListener('click', () => {
-                vscode.postMessage({ command: 'enableLLM' });
-            });
-            
-            document.getElementById('configure-books-btn').addEventListener('click', () => {
-                vscode.postMessage({ command: 'configureGoogleBooks' });
-            });
-            
-            document.getElementById('refresh-analysis-btn').addEventListener('click', () => {
-                vscode.postMessage({ command: 'refreshAnalysis' });
-            });
-        })();
-    </script>
+    <div id="app"></div>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
   }

@@ -169,7 +169,28 @@ console.log("test");
   });
 });
 
+describe('Analyzer - Plaintext Support', () => {
+  test('should detect paragraphs in plaintext files based on single-space indent', async () => {
+    const content = ` これは最初の段落です。\nこの行は同じ段落に属します。\n\n これは二番目の段落です。`;
+    const document = new MockTextDocument(content, 'plaintext');
+    const result = await runAnalysis(document as any);
+
+    expect(result).toBeDefined();
+    expect(result?.paragraphs).toHaveLength(2);
+    expect(result?.paragraphs[0].text).toBe('これは最初の段落です。\nこの行は同じ段落に属します。');
+    expect(result?.paragraphs[1].text).toBe('これは二番目の段落です。');
+  });
+});
+
 describe('Analyzer - Caching and Performance', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('should cache analysis results', async () => {
     const content = `# キャッシュテスト
 　テスト段落です。`;
@@ -197,6 +218,9 @@ describe('Analyzer - Caching and Performance', () => {
 
     // Should not throw error
     await expect(handleTextChange(event as any)).resolves.not.toThrow();
+
+    // Fast-forward timers
+    jest.runAllTimers();
   });
 
   test('should ignore non-markdown documents', async () => {

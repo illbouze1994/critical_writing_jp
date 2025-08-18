@@ -8,8 +8,8 @@ const args = process.argv.slice(2);
 const isDev = args.includes('--dev');
 const isWatch = args.includes('--watch');
 
-// ビルド設定
-const buildOptions = {
+// ビルド設定: Extension Host
+const extensionBuildOptions = {
   entryPoints: ['src/extension.ts'],
   bundle: true,
   platform: 'node',
@@ -22,6 +22,22 @@ const buildOptions = {
   treeShaking: true,
   format: 'cjs',
   logLevel: 'info'
+};
+
+// ビルド設定: Webview UI (React)
+const webviewBuildOptions = {
+  entryPoints: ['webview-ui/src/index.tsx'],
+  bundle: true,
+  platform: 'browser',
+  target: 'es2020',
+  outfile: 'dist/webview.js',
+  sourcemap: isDev,
+  minify: !isDev,
+  metafile: true,
+  treeShaking: true,
+  format: 'esm',
+  logLevel: 'info',
+  jsx: 'automatic'
 };
 
 // distディレクトリが存在しない場合は作成
@@ -67,62 +83,74 @@ function copyAssets() {
   }
 }
 
-async function buildExtension() {
+async function buildAll() {
   try {
-    console.log(`🔨 Building extension (${isDev ? 'development' : 'production'})...`);
-    
-    const result = await build(buildOptions);
-    
+    console.log(`🔨 Building all targets (${isDev ? 'development' : 'production'})...`);
+
+    // Extension HostとWebview UIを並列でビルド
+    const [extensionResult, webviewResult] = await Promise.all([
+      build(extensionBuildOptions),
+      build(webviewBuildOptions)
+    ]);
+
     // バンドルサイズ情報表示
-    if (result.metafile) {
-      const { outputs } = result.metafile;
-      const mainOutput = outputs['dist/extension.js'];
-      if (mainOutput) {
-        const sizeKB = Math.round(mainOutput.bytes / 1024);
-        console.log(`📦 Bundle size: ${sizeKB}KB`);
-        
-        // サイズ警告（2MB超過時）
-        if (sizeKB > 2048) {
-          console.warn('⚠️  Bundle size exceeds 2MB. Consider code splitting.');
-        }
-      }
-    }
+    logBundleSize(extensionResult.metafile, 'dist/extension.js', 'Extension Host');
+    logBundleSize(webviewResult.metafile, 'dist/webview.js', 'Webview UI');
     
     // アセットをコピー
     copyAssets();
 
     console.log('✅ Build completed successfully!');
-    return result;
   } catch (error) {
     console.error('❌ Build failed:', error);
     process.exit(1);
   }
 }
 
+function logBundleSize(metafile, outputPath, name) {
+  if (metafile) {
+    const { outputs } = metafile;
+    const output = outputs[outputPath];
+    if (output) {
+      const sizeKB = Math.round(output.bytes / 1024);
+      console.log(`📦 [${name}] Bundle size: ${sizeKB}KB`);
+
+      // サイズ警告
+      const sizeLimit = name === 'Extension Host' ? 2048 : 1024;
+      if (sizeKB > sizeLimit) {
+        console.warn(`⚠️  [${name}] Bundle size exceeds ${sizeLimit}KB. Consider optimization.`);
+      }
+    }
+  }
+}
+
 // ウォッチモード
 if (isWatch) {
   console.log('👀 Starting watch mode...');
+
   const watchOptions = {
-    ...buildOptions,
     plugins: [
       {
         name: 'rebuild-notify',
         setup(build) {
           build.onEnd(result => {
             if (result.errors.length === 0) {
-              console.log('🔄 Rebuild completed at', new Date().toLocaleTimeString());
+              console.log(`🔄 [${build.initialOptions.entryPoints[0]}] Rebuild completed at`, new Date().toLocaleTimeString());
             }
           });
         }
       }
     ]
   };
+
+  // Extension HostとWebview UIの両方をウォッチ
+  build({ ...extensionBuildOptions, ...watchOptions, watch: true }).catch(() => process.exit(1));
+  build({ ...webviewBuildOptions, ...watchOptions, watch: true }).catch(() => process.exit(1));
   
-  build({
-    ...watchOptions,
-    watch: true
-  }).catch(() => process.exit(1));
+  // アセットは初回のみコピー
+  copyAssets();
+
 } else {
   // 通常ビルド
-  buildExtension();
+  buildAll();
 }

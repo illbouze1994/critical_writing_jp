@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Chart</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f0f0f0; color: #333; padding: 2rem; }
+    .container { max-width: 1200px; margin: auto; }
+    h1 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; }
+    h2 { margin-top: 2rem; }
+    .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+    .swatch { border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }
+    .color-display { padding: 2rem 1rem 1rem 1rem; }
+    .color-info { background-color: #fff; padding: 1rem; border-top: 1px solid #eee; }
+    .color-info strong { display: block; font-size: 1.1em; }
+    .color-info span { font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Color Palette Chart</h1>
+    <p>This chart displays the color palette used in the CriticalWritingJp extension. Screenshot this page to generate COLOR_CHART.png.</p>
+
+    <section id="base-light">
+      <h2>Base Palette (Light/Warm Themes)</h2>
+      <div class="palette" id="palette-light"></div>
+    </section>
+
+    <section id="dark-theme-overrides">
+      <h2>Dark Theme Overrides</h2>
+      <div class="palette" id="palette-dark"></div>
+    </section>
+
+    <section id="chart-categorical">
+        <h2>Chart & Categorical Palette</h2>
+        <div class="palette" id="palette-chart"></div>
+    </section>
+  </div>
+
+  <script>
+    const tokens = {
+      "Background": "#FFFFFF",
+      "Surface": "#F7F7F7",
+      "Divider": "#D9D9D9",
+      "Text Primary": "#1A1A1A",
+      "Text Secondary": "#4D4D4D",
+      "Text Inverse": "#FFFFFF",
+      "Primary": "#0072B2",
+      "On Primary": "#FFFFFF",
+      "Secondary / Success": "#009E73",
+      "On Secondary": "#FFFFFF",
+      "Accent": "#E69F00",
+      "On Accent": "#1A1A1A",
+      "Warning": "#F0E442",
+      "On Warning": "#1A1A1A",
+      "Error": "#D55E00",
+      "On Error": "#FFFFFF",
+      "Info": "#56B4E9",
+      "On Info": "#1A1A1A",
+      "Link": "#0072B2",
+      "Focus Outline": "#000000"
+    };
+
+    const darkTokens = {
+      "Background (Dark)": "#121212",
+      "Surface (Dark)": "#1E1E1E",
+      "Divider (Dark)": "#333333",
+      "Text Primary (Dark)": "#F5F5F5",
+      "Text Secondary (Dark)": "#A8A8A8",
+      "Focus Outline (Dark)": "#FFFFFF"
+    };
+
+    const chartTokens = {
+        "Chart 1": "#0072B2",
+        "Chart 2": "#E69F00",
+        "Chart 3": "#009E73",
+        "Chart 4": "#D55E00",
+        "Chart 5": "#CC79A7",
+        "Chart 6": "#56B4E9",
+        "Chart 7": "#F0E442",
+        "Chart 8": "#000000"
+    };
+
+    function createSwatch(name, hex) {
+      const swatch = document.createElement('div');
+      swatch.className = 'swatch';
+      swatch.innerHTML = `
+        <div class="color-display" style="background-color: ${hex};"></div>
+        <div class="color-info">
+          <strong>${name}</strong>
+          <span>${hex}</span>
+        </div>
+      `;
+      return swatch;
+    }
+
+    const lightPalette = document.getElementById('palette-light');
+    for (const [name, hex] of Object.entries(tokens)) {
+      lightPalette.appendChild(createSwatch(name, hex));
+    }
+
+    const darkPalette = document.getElementById('palette-dark');
+    for (const [name, hex] of Object.entries(darkTokens)) {
+      darkPalette.appendChild(createSwatch(name, hex));
+    }
+
+    const chartPalette = document.getElementById('palette-chart');
+    for (const [name, hex] of Object.entries(chartTokens)) {
+      chartPalette.appendChild(createSwatch(name, hex));
+    }
+  </script>
+</body>
+</html>

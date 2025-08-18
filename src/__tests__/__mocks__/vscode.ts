@@ -8,6 +8,12 @@ export enum ViewColumn {
   Three = 3
 }
 
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3
+}
+
 export enum StatusBarAlignment {
   Left = 1,
   Right = 2
