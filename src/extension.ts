@@ -14,8 +14,11 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('[CriticalWritingJp] Activating extension...');
   
   // 初期アクティブエディタを設定
-  if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId === 'markdown') {
-    lastActiveMarkdownEditor = vscode.window.activeTextEditor;
+  if (vscode.window.activeTextEditor) {
+    const lang = vscode.window.activeTextEditor.document.languageId;
+    if (lang === 'markdown' || lang === 'plaintext') {
+      lastActiveMarkdownEditor = vscode.window.activeTextEditor;
+    }
   }
 
   const startTime = Date.now();

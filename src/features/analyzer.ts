@@ -21,7 +21,8 @@ let diagnosticCollection: vscode.DiagnosticCollection;
  * @param event テキスト変更イベント
  */
 export async function handleTextChange(event: vscode.TextDocumentChangeEvent): Promise<void> {
-  if (event.document.languageId !== 'markdown') {
+  const lang = event.document.languageId;
+  if (lang !== 'markdown' && lang !== 'plaintext') {
     return;
   }
 
@@ -491,9 +492,9 @@ async function updateEditorDecorations(
         let index = -1;
         
         // 同じキーワードの複数出現をすべて検出
-        while ((index = paragraphText.indexOf(keyword.term, searchStart)) !== -1) {
+        while ((index = paragraphText.indexOf(keyword.text, searchStart)) !== -1) {
           const keywordStartPos = document.positionAt(startOffset + index);
-          const keywordEndPos = document.positionAt(startOffset + index + keyword.term.length);
+          const keywordEndPos = document.positionAt(startOffset + index + keyword.text.length);
           const keywordRange = new vscode.Range(keywordStartPos, keywordEndPos);
           keywordRanges.push(keywordRange);
           searchStart = index + 1;
