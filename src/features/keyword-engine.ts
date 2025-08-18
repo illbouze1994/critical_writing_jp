@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
 import { Paragraph, Keyword } from '../core/types';
 import { normalizeText } from '../core/utils';
 import * as kuromoji from 'kuromoji';
@@ -13,6 +15,7 @@ export class KeywordEngine {
   private tokenizer: kuromoji.Tokenizer | null = null;
   private joyoKanjiSet: Set<string>;
   private isInitialized = false;
+  private context: vscode.ExtensionContext | null = null;
 
   constructor() {
     // 日本語ストップワード（一般的すぎる語彙を除外）
@@ -44,6 +47,14 @@ export class KeywordEngine {
   }
 
   /**
+   * 拡張機能のコンテキストをセット
+   * @param context 拡張機能コンテキスト
+   */
+  public initialize(context: vscode.ExtensionContext): void {
+    this.context = context;
+  }
+
+  /**
    * kuromojiトークナイザの初期化
    * @returns Promise<void>
    */
@@ -63,46 +74,33 @@ export class KeywordEngine {
           resolve();
         }, 10000);
 
-        // Try different possible dictionary paths
-        const possiblePaths = [
-          'node_modules/kuromoji/dict',
-          './node_modules/kuromoji/dict',
-          '../node_modules/kuromoji/dict',
-          '../../node_modules/kuromoji/dict'
-        ];
+        if (!this.context) {
+          console.error('[KeywordEngine] Extension context is not available. Cannot initialize tokenizer.');
+          clearTimeout(timeoutId);
+          this.isInitialized = true;
+          resolve();
+          return;
+        }
 
-        let currentPathIndex = 0;
-        
-        const tryNextPath = () => {
-          if (currentPathIndex >= possiblePaths.length) {
-            console.error('[KeywordEngine] All dictionary paths failed, falling back to rule-based extraction');
+        const dicPath = path.join(this.context.extensionPath, 'node_modules', 'kuromoji', 'dict');
+        console.log(`[KeywordEngine] Initializing kuromoji with dictionary path: ${dicPath}`);
+
+        kuromoji.builder({ dicPath }).build((err, tokenizer) => {
+          if (err) {
+            console.error(`[KeywordEngine] Failed to initialize kuromoji with path '${dicPath}':`, err);
+            console.log('[KeywordEngine] Falling back to rule-based extraction');
             clearTimeout(timeoutId);
             this.isInitialized = true;
             resolve();
             return;
           }
 
-          const dicPath = possiblePaths[currentPathIndex];
-          console.log(`[KeywordEngine] Trying dictionary path: ${dicPath}`);
-          currentPathIndex++;
-
-          kuromoji.builder({ dicPath }).build((err, tokenizer) => {
-            if (err) {
-              console.error(`[KeywordEngine] Failed with path '${dicPath}':`, err);
-              console.log('[KeywordEngine] Trying next dictionary path...');
-              tryNextPath();
-              return;
-            }
-            
-            console.log(`[KeywordEngine] Successfully initialized kuromoji with path: ${dicPath}`);
-            clearTimeout(timeoutId);
-            this.tokenizer = tokenizer;
-            this.isInitialized = true;
-            resolve();
-          });
-        };
-
-        tryNextPath();
+          console.log('[KeywordEngine] Successfully initialized kuromoji.');
+          clearTimeout(timeoutId);
+          this.tokenizer = tokenizer;
+          this.isInitialized = true;
+          resolve();
+        });
 
       } catch (error) {
         console.error('[KeywordEngine] Exception during tokenizer initialization:', error);

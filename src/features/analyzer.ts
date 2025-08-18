@@ -554,6 +554,14 @@ export async function initializeAnalyzer(context: vscode.ExtensionContext): Prom
     diagnosticCollection = vscode.languages.createDiagnosticCollection('criticalWritingJp');
     context.subscriptions.push(diagnosticCollection);
 
+    // キーワードエンジンの初期化（コンテキストを渡す）
+    try {
+      keywordEngine.initialize(context);
+      console.log('[Analyzer] Keyword engine context set');
+    } catch (error) {
+      console.warn('[Analyzer] Failed to set keyword engine context:', error);
+    }
+
     // 引用チェッカーのデフォルトスタイルを初期化
     try {
       citationChecker.initializeDefaultStyles();
