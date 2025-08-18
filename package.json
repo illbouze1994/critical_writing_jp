@@ -74,13 +74,15 @@
           "type": "number",
           "minimum": 0,
           "default": 200,
-          "description": "段落の最小文字数しきい値"
+          "description": "段落の最小文字数しきい値",
+          "order": 1
         },
         "criticalWritingJp.counting.threshold.max": {
           "type": "number",
           "minimum": 1,
           "default": 800,
-          "description": "段落の最大文字数しきい値"
+          "description": "段落の最大文字数しきい値",
+          "order": 2
         },
         "criticalWritingJp.keyword.mode": {
           "type": "string",
@@ -90,7 +92,8 @@
             "embed"
           ],
           "default": "rules",
-          "description": "キーワード抽出モード"
+          "description": "キーワード抽出モード",
+          "order": 10
         },
         "criticalWritingJp.roi.weights": {
           "type": "object",
@@ -128,12 +131,20 @@
             "w3": 0.15,
             "w4": 0.15
           },
-          "description": "ROI計算の重み係数"
+          "description": "ROI計算の重み係数",
+          "order": 20
+        },
+        "criticalWritingJp.citations.googleBooks.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google Books APIキー",
+          "order": 40
         },
         "criticalWritingJp.llm.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "LLM評価機能の有効化"
+          "description": "LLM評価機能の有効化",
+          "order": 50
         },
         "criticalWritingJp.llm.backend": {
           "type": "string",
@@ -142,27 +153,34 @@
             "node"
           ],
           "default": "wasm",
-          "description": "LLMバックエンド種別"
+          "description": "LLMバックエンド種別",
+          "order": 51
         },
         "criticalWritingJp.llm.modelPath": {
           "type": "string",
           "default": "",
-          "description": "LLMモデルファイルパス"
-        },
-        "criticalWritingJp.citations.googleBooks.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Google Books APIキー"
+          "description": "LLMモデルファイルパス",
+          "order": 52
         },
         "criticalWritingJp.style.dictionaryPath": {
           "type": "string",
           "default": "",
-          "description": "スタイル辞書ファイルパス"
+          "description": "スタイル辞書ファイルパス",
+          "order": 60
         },
         "criticalWritingJp.citationStyle.active": {
           "type": "string",
-          "default": "generic.ja.v1",
-          "description": "アクティブな引用スタイル"
+          "enum": [
+            "デフォルト",
+            "generic.ja.v1"
+          ],
+          "enumDescriptions": [
+            "デフォルト: 著者名、『書籍名』、出版社、出版年、30―90頁",
+            "汎用日本語スタイル v1"
+          ],
+          "default": "デフォルト",
+          "description": "アクティブな引用スタイル",
+          "order": 70
         },
         "criticalWritingJp.citationStyle.packPaths": {
           "type": "array",
@@ -170,12 +188,14 @@
             "type": "string"
           },
           "default": [],
-          "description": "引用スタイルパックのパス一覧"
+          "description": "引用スタイルパックのパス一覧",
+          "order": 71
         },
         "criticalWritingJp.citationStyle.autoFix.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "引用スタイル自動修正の有効化"
+          "description": "引用スタイル自動修正の有効化",
+          "order": 72
         },
         "criticalWritingJp.citationStyle.diffMode": {
           "type": "string",
@@ -184,26 +204,30 @@
             "side-by-side"
           ],
           "default": "unified",
-          "description": "差分表示モード"
+          "description": "差分表示モード",
+          "order": 73
         },
         "criticalWritingJp.privacy.anonymizeBeforeSend": {
           "type": "boolean",
           "default": true,
-          "description": "外部送信前の匿名化処理"
+          "description": "外部送信前の匿名化処理",
+          "order": 80
         },
         "criticalWritingJp.performance.maxWorkers": {
           "type": "number",
           "minimum": 1,
           "maximum": 4,
           "default": 2,
-          "description": "最大ワーカー数"
+          "description": "最大ワーカー数",
+          "order": 90
         },
         "criticalWritingJp.ui.preview.headChars": {
           "type": "number",
           "minimum": 10,
           "maximum": 120,
           "default": 40,
-          "description": "プレビュー表示文字数"
+          "description": "プレビュー表示文字数",
+          "order": 100
         }
       }
     }
