@@ -141,6 +141,10 @@ export class WebviewPanel {
         await this.handleGoogleBooksConfigRequest();
         break;
 
+      case 'refreshAnalysis':
+        await vscode.commands.executeCommand('criticalWritingJp.runKeywordNow');
+        break;
+
       default:
         console.warn(`[WebviewPanel] Unknown message command: ${message.command}`);
     }
