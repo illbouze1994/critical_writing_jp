@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Div, Text, Dropdown, Anchor, ThemeProvider, StyleReset } from "atomize";
 import { Provider as StyletronProvider } from 'styletron-react';
 import type { DefaultTheme } from 'atomize/dist/types';
-import StatisticsPanel from './components/StatisticsPanel';
+import CharacterBalancePanel from './components/CharacterBalancePanel';
+import KanjiUsagePanel from './components/KanjiUsagePanel';
 import RoiMapPanel from './components/RoiMapPanel';
 import ResultsTable from './components/ResultsTable';
 import { Client as Styletron } from 'styletron-engine-atomic';
@@ -98,13 +99,19 @@ const App = () => {
 
           {/* Main content area */}
           <Div>
-            <Div d="flex" flexDir={{ xs: "column", md: "row" }} m={{ t: "1rem" }}>
-              <Div flexGrow="1" p={{ r: { md: "0.5rem" } }}>
-                <StatisticsPanel />
+            {/* Character Balance and Kanji Usage panels arranged horizontally */}
+            <Div d="flex" flexDir="row" m={{ t: "1rem" }} justify="space-between" h="250px" style={{ overflow: "hidden" }}>
+              <Div w="48%" h="100%" m={{ r: "1rem" }} style={{ flexShrink: 0 }}>
+                <CharacterBalancePanel />
               </Div>
-              <Div flexGrow="1" p={{ l: { md: "0.5rem" } }} m={{ t: { xs: "1rem", md: "0" } }}>
-                <RoiMapPanel />
+              <Div w="48%" h="100%" style={{ flexShrink: 0 }}>
+                <KanjiUsagePanel />
               </Div>
+            </Div>
+
+            {/* ROI Map panel below the statistics panels */}
+            <Div m={{ t: "1rem", b: "1rem" }}>
+              <RoiMapPanel />
             </Div>
 
             <Div m={{ t: "2rem" }}>

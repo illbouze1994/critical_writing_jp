@@ -104,8 +104,25 @@ export function activate(context: vscode.ExtensionContext) {
 
   } catch (error) {
     console.error('[CriticalWritingJp] Failed to activate extension:', error);
-    vscode.window.showErrorMessage('CriticalWritingJp拡張機能の初期化に失敗しました');
-    throw error;
+    
+    // 部分的な初期化失敗でも拡張機能を完全に停止させない
+    // コマンド登録の競合エラーの場合は警告のみ
+    if (error instanceof Error && error.message.includes('already exists')) {
+      console.warn('[CriticalWritingJp] Some commands already registered by another instance, continuing with partial functionality');
+      vscode.window.showWarningMessage('CriticalWritingJp: 一部機能が他のインスタンスと競合しています');
+    } else {
+      vscode.window.showErrorMessage('CriticalWritingJp拡張機能の初期化に失敗しました');
+      
+      // 重大なエラーの場合のみリソースをクリーンアップ
+      if (extensionDisposables) {
+        try {
+          extensionDisposables.dispose();
+        } catch (disposeError) {
+          console.warn('[CriticalWritingJp] Error during cleanup:', disposeError);
+        }
+      }
+      throw error;
+    }
   }
 }
 
@@ -144,126 +161,150 @@ function withErrorHandling(
  * パネル表示/非表示トグルコマンドの登録（リファクタリング：Extract Function）
  */
 function registerTogglePanelCommand(store: DisposableStore, context: vscode.ExtensionContext) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.togglePanel', 
-    withErrorHandling(
-      async () => {
-        // 初回実行時のみWebviewパネル機能を動的ロード（フォールバックは使用しない）
-        const mod = await import('./features/panel');
-        await mod.createOrShowPanel(context);
-      },
-      'Failed to toggle panel',
-      'パネルの表示に失敗しました'
-    )
-  ));
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.togglePanel', 
+      withErrorHandling(
+        async () => {
+          // 初回実行時のみWebviewパネル機能を動的ロード（フォールバックは使用しない）
+          const mod = await import('./features/panel');
+          await mod.createOrShowPanel(context);
+        },
+        'Failed to toggle panel',
+        'パネルの表示に失敗しました'
+      )
+    ));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.togglePanel');
+  }
 }
 
 /**
  * LLM機能有効化コマンドの登録（リファクタリング：Extract Function）
  */
 function registerEnableLLMCommand(store: DisposableStore) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.enableLLM', async () => {
-    try {
-      const result = await vscode.window.showInformationMessage(
-        'LLM機能を有効にすると、文書の内容がローカルのAIモデルで解析されます。この機能を有効にしますか？',
-        { modal: true },
-        '有効にする'
-      );
-      
-      if (result === '有効にする') {
-        await globalSettings.updateSetting('llm.enabled', true);
-        vscode.window.showInformationMessage('LLM機能を有効化しました');
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.enableLLM', async () => {
+      try {
+        const result = await vscode.window.showInformationMessage(
+          'LLM機能を有効にすると、文書の内容がローカルのAIモデルで解析されます。この機能を有効にしますか？',
+          { modal: true },
+          '有効にする'
+        );
+        
+        if (result === '有効にする') {
+          await globalSettings.updateSetting('llm.enabled', true);
+          vscode.window.showInformationMessage('LLM機能を有効化しました');
+        }
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to enable LLM:', error);
+        vscode.window.showErrorMessage('LLM機能の有効化に失敗しました');
       }
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to enable LLM:', error);
-      vscode.window.showErrorMessage('LLM機能の有効化に失敗しました');
-    }
-  }));
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.enableLLM');
+  }
 }
 
 /**
  * Google Books APIキー設定コマンドの登録（リファクタリング：Extract Function）
  */
 function registerConfigureGoogleBooksKeyCommand(store: DisposableStore, context: vscode.ExtensionContext) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.configureGoogleBooksKey', async () => {
-    try {
-      const apiKey = await vscode.window.showInputBox({
-        prompt: 'Google Books APIキーを入力してください',
-        password: true,
-        validateInput: (value) => {
-          if (!value || value.trim().length === 0) {
-            return 'APIキーを入力してください';
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.configureGoogleBooksKey', async () => {
+      try {
+        const apiKey = await vscode.window.showInputBox({
+          prompt: 'Google Books APIキーを入力してください',
+          password: true,
+          validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+              return 'APIキーを入力してください';
+            }
+            return undefined;
           }
-          return undefined;
-        }
-      });
+        });
 
-      if (apiKey) {
-        // SecretStorageに保存
-        await context.secrets.store('googleBooksApiKey', apiKey.trim());
-        vscode.window.showInformationMessage('Google Books APIキーを保存しました');
+        if (apiKey) {
+          // SecretStorageに保存
+          await context.secrets.store('googleBooksApiKey', apiKey.trim());
+          vscode.window.showInformationMessage('Google Books APIキーを保存しました');
+        }
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to configure Google Books API key:', error);
+        vscode.window.showErrorMessage('APIキーの設定に失敗しました');
       }
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to configure Google Books API key:', error);
-      vscode.window.showErrorMessage('APIキーの設定に失敗しました');
-    }
-  }));
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.configureGoogleBooksKey');
+  }
 }
 
 /**
  * キーワード解析即時実行コマンドの登録（リファクタリング：Extract Function）
  */
 function registerRunKeywordNowCommand(store: DisposableStore) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.runKeywordNow', async () => {
-    try {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor || editor.document.languageId !== 'markdown' || editor.document.isClosed) {
-        vscode.window.showWarningMessage('Markdownファイルを開いてください');
-        return;
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.runKeywordNow', async () => {
+      try {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || (editor.document.languageId !== 'markdown' && editor.document.languageId !== 'plaintext') || editor.document.isClosed) {
+          vscode.window.showWarningMessage('Markdownかtxtファイルを開いてください');
+          return;
+        }
+
+        vscode.window.showInformationMessage('キーワード解析を実行中...');
+        // 実際の解析処理は遅延ロード
+        const { runAnalysis } = await import('./features/analyzer');
+        await runAnalysis(editor.document);
+
+        // パネルが開いていれば更新（開いていない場合は何もしない）
+        const { updatePanel } = await import('./features/panel');
+        await updatePanel();
+
+        vscode.window.showInformationMessage('キーワード解析が完了しました');
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to run keyword analysis:', error);
+        vscode.window.showErrorMessage('キーワード解析に失敗しました');
       }
-
-      vscode.window.showInformationMessage('キーワード解析を実行中...');
-      // 実際の解析処理は遅延ロード
-      const { runAnalysis } = await import('./features/analyzer');
-      await runAnalysis(editor.document);
-
-      // パネルが開いていれば更新（開いていない場合は何もしない）
-      const { updatePanel } = await import('./features/panel');
-      await updatePanel();
-
-      vscode.window.showInformationMessage('キーワード解析が完了しました');
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to run keyword analysis:', error);
-      vscode.window.showErrorMessage('キーワード解析に失敗しました');
-    }
-  }));
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.runKeywordNow');
+  }
 }
 
 /**
  * 引用スタイル検証コマンドの登録（リファクタリング：Extract Function）
  */
 function registerValidateCitationStyleCommand(store: DisposableStore) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.validateCitationStyle', async () => {
-    try {
-      vscode.window.showInformationMessage('引用スタイル検証は将来のバージョンで実装予定です');
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to validate citation style:', error);
-      vscode.window.showErrorMessage('引用スタイル検証に失敗しました');
-    }
-  }));
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.validateCitationStyle', async () => {
+      try {
+        vscode.window.showInformationMessage('引用スタイル検証は将来のバージョンで実装予定です');
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to validate citation style:', error);
+        vscode.window.showErrorMessage('引用スタイル検証に失敗しました');
+      }
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.validateCitationStyle');
+  }
 }
 
 /**
  * スタイル問題修正コマンドの登録（リファクタリング：Extract Function）
  */
 function registerFixStyleIssuesCommand(store: DisposableStore) {
-  store.add(vscode.commands.registerCommand('criticalWritingJp.fixStyleIssues', async () => {
-    try {
-      vscode.window.showInformationMessage('スタイル修正機能は将来のバージョンで実装予定です');
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to fix style issues:', error);
-      vscode.window.showErrorMessage('スタイル修正に失敗しました');
-    }
-  }));
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.fixStyleIssues', async () => {
+      try {
+        vscode.window.showInformationMessage('スタイル修正機能は将来のバージョンで実装予定です');
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to fix style issues:', error);
+        vscode.window.showErrorMessage('スタイル修正に失敗しました');
+      }
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.fixStyleIssues');
+  }
 }
 
 /**
@@ -278,25 +319,29 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
   registerFixStyleIssuesCommand(store);
 
   // 新しいコマンドを登録
-  store.add(vscode.commands.registerCommand('criticalWritingJp.jumpToParagraphAndShowPanel', async (range: {start: number, end: number}) => {
-    try {
-      // パネルを表示
-      const { createOrShowPanel } = await import('./features/panel');
-      await createOrShowPanel(context);
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.jumpToParagraphAndShowPanel', async (range: {start: number, end: number}) => {
+      try {
+        // パネルを表示
+        const { createOrShowPanel } = await import('./features/panel');
+        await createOrShowPanel(context);
 
-      // 指定された範囲にジャンプ
-      const editor = vscode.window.activeTextEditor;
-      if (editor && range) {
-        const startPos = editor.document.positionAt(range.start);
-        const endPos = editor.document.positionAt(range.end);
-        editor.selection = new vscode.Selection(startPos, endPos);
-        editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+        // 指定された範囲にジャンプ
+        const editor = vscode.window.activeTextEditor;
+        if (editor && range) {
+          const startPos = editor.document.positionAt(range.start);
+          const endPos = editor.document.positionAt(range.end);
+          editor.selection = new vscode.Selection(startPos, endPos);
+          editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+        }
+      } catch (error) {
+        console.error('[CriticalWritingJp] Failed to jump to paragraph:', error);
+        vscode.window.showErrorMessage('指定段落へのジャンプに失敗しました');
       }
-    } catch (error) {
-      console.error('[CriticalWritingJp] Failed to jump to paragraph:', error);
-      vscode.window.showErrorMessage('指定段落へのジャンプに失敗しました');
-    }
-  }));
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.jumpToParagraphAndShowPanel');
+  }
 }
 
 /**
@@ -318,6 +363,30 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
     } catch (error) {
       // テキスト変更処理のエラーはログに記録するが、ユーザーには通知しない
       console.warn('[CriticalWritingJp] Error in text change handler:', error);
+    }
+  }));
+
+  // ドキュメント閉じられた時の処理
+  store.add(vscode.workspace.onDidCloseTextDocument(async (document) => {
+    try {
+      const lang = document.languageId;
+      if (lang !== 'markdown' && lang !== 'plaintext') {
+        return;
+      }
+
+      // 解析キャッシュをクリア
+      const { clearAnalysisCache } = await import('./features/analyzer');
+      clearAnalysisCache(document.uri.toString());
+
+      // パネルを初期状態にリセット
+      try {
+        const { updatePanel } = await import('./features/panel');
+        await updatePanel();
+      } catch (error) {
+        console.warn('[CriticalWritingJp] Failed to update panel on document close:', error);
+      }
+    } catch (error) {
+      console.warn('[CriticalWritingJp] Error in document close handler:', error);
     }
   }));
 

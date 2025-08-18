@@ -76,11 +76,11 @@ async function updatePanelContent(): Promise<void> {
   // 対象ドキュメントURIを解決（アクティブMD → 可視MD → 最終解析URI）
   let targetUri: string | undefined;
   const activeEditor = vscode.window.activeTextEditor;
-  if (activeEditor && activeEditor.document.languageId === 'markdown') {
+  if (activeEditor && (activeEditor.document.languageId === 'markdown' || activeEditor.document.languageId === 'plaintext')) {
     targetUri = activeEditor.document.uri.toString();
   }
   if (!targetUri) {
-    const visibleMd = vscode.window.visibleTextEditors.find(e => e.document.languageId === 'markdown');
+    const visibleMd = vscode.window.visibleTextEditors.find(e => e.document.languageId === 'markdown' || e.document.languageId === 'plaintext');
     if (visibleMd) {
       targetUri = visibleMd.document.uri.toString();
     }
@@ -96,7 +96,7 @@ async function updatePanelContent(): Promise<void> {
         type: 'update',
         payload: {
           hasContent: false,
-          message: 'Markdownファイルを開いてください'
+          message: 'txtファイルかMarkdownファイルを開いてください'
         }
       });
     } catch {}
@@ -362,6 +362,7 @@ function getWebviewContent(webview: vscode.Webview): string {
         }
         .paragraph-chars {
             font-weight: bold;
+            font-size: 11px;
             margin-bottom: 2px;
         }
         .paragraph-type {
@@ -441,7 +442,7 @@ function getWebviewContent(webview: vscode.Webview): string {
 </head>
 <body>
     <div class="header">
-        <div class="title">📝 CriticalWritingJp</div>
+        <div class="title">CriticalWritingJp</div>
         <div>
             <button class="button" id="refreshBtn">更新</button>
             <button class="button" id="settingsBtn">設定</button>
@@ -508,9 +509,9 @@ function getWebviewContent(webview: vscode.Webview): string {
                     </div>
                 </div>
                 
-                <!-- 円グラフセクション -->
+                <!-- 文字種解析グラフセクション -->
                 <div class="charts-section">
-                    <div class="charts-title">📊 文字種バランス・常用漢字使用状況</div>
+                    <div class="charts-title">文字種解析</div>
                     <div class="charts-grid">
                         <div class="chart-container">
                             <div class="chart-label">文字種バランス</div>
@@ -520,7 +521,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                             </div>
                         </div>
                         <div class="chart-container">
-                            <div class="chart-label">常用漢字使用率</div>
+                            <div class="chart-label">常用漢字使用状況</div>
                             <canvas id="joyoKanjiChart" class="chart-canvas"></canvas>
                             <div class="chart-stats">
                                 使用率: \${Math.round(characterAnalysis.joyoKanjiUsage * 100)}%
@@ -563,7 +564,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                     data: charts.characterBalance,
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
+                        maintainAspectRatio: true,
                         plugins: {
                             legend: {
                                 position: 'bottom',
@@ -603,7 +604,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                     data: charts.joyoKanjiUsage,
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
+                        maintainAspectRatio: true,
                         plugins: {
                             legend: {
                                 position: 'bottom',

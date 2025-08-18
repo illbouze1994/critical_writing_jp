@@ -182,8 +182,44 @@ vsce package
 ### ローカルインストール
 
 ```bash
-# .vsixファイルからインストール
-code --install-extension critical-writing-jp-1.0.0.vsix
+# .vsixファイルからインストール（バージョンは現在のpackage.jsonに合わせる）
+code --install-extension critical-writing-jp-1.0.1.vsix
+
+# 既存バージョンがインストール済みの場合は先にアンインストール
+code --uninstall-extension illbouze.critical-writing-jp
+
+# 強制的に再インストール
+code --install-extension critical-writing-jp-1.0.1.vsix --force
+```
+
+### 完全なビルドと導入手順
+
+パネルの無限拡張バグなどの修正を確実に反映するため、以下の手順で完全なビルドと導入を行ってください：
+
+```bash
+# 1. 依存関係のクリーンインストール
+Remove-Item node_modules -Recurse -Force -ErrorAction SilentlyContinue
+npm install
+
+# 2. webview-uiの依存関係もクリーンインストール
+cd webview-ui
+Remove-Item node_modules -Recurse -Force -ErrorAction SilentlyContinue
+npm install
+cd ..
+
+# 3. 完全なビルド実行
+npm run build
+
+# 4. .vsixパッケージの作成
+npx vsce package
+
+# 5. VS Codeでの既存拡張機能のアンインストール（重要）
+code --uninstall-extension illbouze.critical-writing-jp
+
+# 6. VS Codeを完全に再起動
+
+# 7. 新しいパッケージのインストール
+code --install-extension critical-writing-jp-1.0.1.vsix --force
 ```
 
 ## プロジェクト構造
@@ -246,7 +282,19 @@ scripts/
    - VS Codeを再起動
    - 出力パネルでエラーログを確認
 
-3. **パフォーマンス問題**
+3. **パネルの無限縦方向拡張バグ**
+   - 症状：文字種バランス・常用漢字使用率パネルが縦に無限に拡張される
+   - 原因：古いキャッシュされたwebview UIが使用されている
+   - 解決方法：
+     ```bash
+     # 完全なアンインストールと再インストール
+     code --uninstall-extension illbouze.critical-writing-jp
+     # VS Codeを完全に再起動
+     code --install-extension critical-writing-jp-1.0.1.vsix --force
+     ```
+   - 予防策：開発時は必ずwebview UIも含めた完全ビルドを実行する
+
+4. **パフォーマンス問題**
    - 設定で最大ワーカー数を調整
    - 大きな文書では部分解析を利用
 

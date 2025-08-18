@@ -605,10 +605,11 @@ async function updateEditorDecorations(
       range: new vscode.Range(startPos, endPos),
       renderOptions: {
         before: {
-          contentText: `[${p.chars}字`,
+          contentText: `${p.chars}`,
+          fontSize: '10pt',
         },
         after: {
-          contentText: `]`,
+          contentText: ``,
         },
       },
       hoverMessage: 'クリックしてパネルを開く',
@@ -674,6 +675,21 @@ export function getCachedAnalysisResult(documentUri: string): AnalysisResult | u
  */
 export function getLastAnalyzedUri(): string | undefined {
   return lastAnalyzedUri;
+}
+
+/**
+ * 指定URIの解析キャッシュをクリア
+ * @param documentUri クリア対象のドキュメントURI
+ */
+export function clearAnalysisCache(documentUri: string): void {
+  analysisCache.delete(documentUri);
+  
+  // 削除されたドキュメントが最後に解析されたものの場合、リセット
+  if (lastAnalyzedUri === documentUri) {
+    lastAnalyzedUri = undefined;
+  }
+  
+  console.log(`[Analyzer] Cleared analysis cache for: ${documentUri}`);
 }
 
 /**

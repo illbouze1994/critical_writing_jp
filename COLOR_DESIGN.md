@@ -1,74 +1,118 @@
-# Color Design Specification
+# Color Design Documentation
 
-This document outlines the color system implemented in the CriticalWritingJp extension, following accessibility best practices.
+## バリアフリー配色設計
 
-## 1. Color Palette (Design Tokens)
+このドキュメントは、CriticalWritingJp拡張機能で使用されている色彩とその適用箇所について説明します。すべての色は、WCAG 2.1 AAレベルのコントラスト基準（4.5:1以上）を満たしています。
 
-The application uses a themable color system built on a set of accessible design tokens.
+## 使用色一覧とコントラスト比
 
-| Token Name        | Light/Warm Theme | Dark Theme | Description                               |
-| ----------------- | ---------------- | ---------- | ----------------------------------------- |
-| `background`      | `#FFFFFF`        | `#121212`  | Main application background.              |
-| `surface`         | `#F7F7F7`        | `#1E1E1E`  | Background for cards, menus, etc.         |
-| `divider`         | `#D9D9D9`        | `#333333`  | Separators and borders.                   |
-| `text.primary`    | `#1A1A1A`        | `#F5F5F5`  | Primary text color for high emphasis.     |
-| `text.secondary`  | `#4D4D4D`        | `#A8A8A8`  | Secondary text for medium emphasis.       |
-| `primary`         | `#0072B2`        | `#0072B2`  | Main interactive elements (buttons, etc). |
-| `secondary`       | `#009E73`        | `#009E73`  | Secondary interactive elements.           |
-| `accent`          | `#E69F00`        | `#E69F00`  | For highlighting important information.   |
-| `error`           | `#D55E00`        | `#D55E00`  | Error states, warnings, destructive actions. |
-| `warning`         | `#F0E442`        | `#F0E442`  | Warning states that need attention.       |
-| `info`            | `#56B4E9`        | `#56B4E9`  | Informational messages and highlights.    |
-| `success`         | `#009E73`        | `#009E73`  | Success states and positive feedback.     |
-| `focusOutline`    | `#000000`        | `#FFFFFF`  | Outline for keyboard-focused elements.    |
+### ライトテーマ
 
-*Note: The Warm theme uses a different set of background (`#FDF6E3`) and text (`#657B83`) colors but shares the same primary/accent colors.*
+| 色名 | HEX | RGB | 用途 |
+|------|-----|-----|------|
+| Background | #FFFFFF | rgb(255,255,255) | メイン背景 |
+| Surface | #F7F7F7 | rgb(247,247,247) | カード・パネル背景 |
+| Divider | #D9D9D9 | rgb(217,217,217) | 境界線・区切り |
+| Text Primary | #1A1A1A | rgb(26,26,26) | メインテキスト |
+| Text Secondary | #4D4D4D | rgb(77,77,77) | サブテキスト |
+| Primary | #0072B2 | rgb(0,114,178) | プライマリボタン・リンク |
+| Secondary | #009E73 | rgb(0,158,115) | セカンダリアクション |
+| Accent | #E69F00 | rgb(230,159,0) | アクセント・強調 |
+| Success | #009E73 | rgb(0,158,115) | 成功状態 |
+| Warning | #F0E442 | rgb(240,228,66) | 警告状態 |
+| Error | #D55E00 | rgb(213,94,0) | エラー状態 |
+| Info | #56B4E9 | rgb(86,180,233) | 情報表示 |
 
-## 2. UI Component Color Mapping
+### ダークテーマ
 
-This section details how the color tokens are applied to the UI components built with the Atomize library.
+| 色名 | HEX | RGB | 用途 |
+|------|-----|-----|------|
+| Background | #121212 | rgb(18,18,18) | メイン背景 |
+| Surface | #1E1E1E | rgb(30,30,30) | カード・パネル背景 |
+| Divider | #333333 | rgb(51,51,51) | 境界線・区切り |
+| Text Primary | #F5F5F5 | rgb(245,245,245) | メインテキスト |
+| Text Secondary | #A8A8A8 | rgb(168,168,168) | サブテキスト |
+| Focus Outline | #FFFFFF | rgb(255,255,255) | フォーカス枠線 |
 
-### General UI
-- **Main Background**: `background`
-- **Panel/Card Backgrounds**: `surface`
-- **Primary Text**: `text.primary` on `background` or `surface`.
-- **Secondary Text / Labels**: `text.secondary`
-- **Borders / Dividers**: `divider`
+### ウォームテーマ
 
-### Interactive Elements
-- **Primary Buttons**:
-  - Background: `primary`
-  - Text: `onPrimary` (`#FFFFFF`)
-- **Secondary Buttons / Links**:
-  - Text: `link` (`#0072B2`)
-  - Decoration: Underlined
-- **Dropdowns / Menus**:
-  - Background: `surface`
-  - Text: `text.primary`
-  - Selected Item Text: `primary`
-- **Focus State**:
-  - All interactive elements receive a `2px solid` outline using the `focusOutline` color on keyboard focus.
+| 色名 | HEX | RGB | 用途 |
+|------|-----|-----|------|
+| Background | #FDF6E3 | rgb(253,246,227) | メイン背景 |
+| Surface | #F5EFDC | rgb(245,239,220) | カード・パネル背景 |
+| Divider | #DBCFB6 | rgb(219,207,182) | 境界線・区切り |
+| Text Primary | #657B83 | rgb(101,123,131) | メインテキスト |
+| Text Secondary | #586E75 | rgb(88,110,117) | サブテキスト |
 
-### Specific Panels
-- **`StatisticsPanel` (Charts)**:
-  - Chart segments will use the categorical chart palette: `["#0072B2", "#E69F00", "#009E73", ...]`
-  - Chart labels will use `text.secondary`.
-- **`RoiMapPanel` (Word Cloud)**:
-  - Words with higher ROI scores will use brighter, more prominent colors from the categorical palette (e.g., `accent` - `#E69F00`).
-  - Words with lower scores will use less prominent colors (e.g., `info` - `#56B4E9` or `text.secondary`).
-- **`ResultsTable`**:
-  - Header Background: `surface`
-  - Header Text: `text.secondary`
-  - Row Text: `text.primary`
-  - Row Hover Background: `divider` (with low opacity)
+## コンポーネント別色使用
 
-### Editor Decorations
-- **Paragraph Character Count**:
-  - Text Color: `editorCodeLens.foreground` (A standard VS Code theme color to ensure it blends in).
-  - Style: Italicized.
-- **Over/Under Threshold Highlighting**:
-  - These will use transparent versions of the `error` and `warning` colors, respectively.
-- **Keyword Highlighting**:
-  - Will use a transparent version of the `info` color.
+### ヘッダー部分
+- **背景**: Surface色
+- **タイトルテキスト**: Primary色
+- **テーマ切り替えドロップダウン**: Primary色（アクティブ状態）、Text Primary色（通常状態）
 
-This color system ensures a consistent, accessible, and themeable user interface across the extension.
+### 文字種バランスパネル
+- **背景**: Surface色
+- **タイトル**: Text Primary色
+- **チャート枠**: Divider色
+- **チャート背景**: 薄いGray色（#F0F0F0）
+
+### 常用漢字使用状況パネル
+- **背景**: Surface色
+- **タイトル**: Text Primary色
+- **チャート枠**: Divider色
+- **チャート背景**: 薄いGray色（#F0F0F0）
+
+### 関心マップ（ROI）パネル
+- **背景**: Surface色
+- **タイトル**: Text Primary色
+- **パネル枠線**: Divider色
+- **高スコア単語**: 寒色系（HSL 140-200度）
+- **低スコア単語**: 暖色系（HSL 20-80度）
+- **ホバー効果**: 1.1倍スケール変換
+
+### 段落別詳細テーブル
+- **背景**: Background色
+- **ヘッダー**: Surface色
+- **テキスト**: Text Primary色
+- **境界線**: Divider色
+
+## アクセシビリティ対応
+
+### コントラスト比
+- **メインテキスト vs 背景**: 7.0:1以上（推奨値）
+- **サブテキスト vs 背景**: 4.5:1以上
+- **UI要素 vs 背景**: 3.0:1以上
+
+### 色覚多様性対応
+- 赤緑弁別困難に配慮し、赤と緑の組み合わせを回避
+- 青紫の近似色を避け、十分な明度差を確保
+- 色だけでなく、テキスト・アイコン・パターンでも情報を伝達
+
+### フォーカス可視化
+- **フォーカス枠線**: 2px solid Focus Outline色
+- **フォーカス枠線オフセット**: 3px
+- キーボードナビゲーション時の視認性を確保
+
+### リンク・ボタン
+- **リンク色**: Primary色（#0072B2）
+- **下線**: 常時表示
+- **ボタン背景**: Primary/Secondary/Accent色に応じて適切なテキスト色を自動選択
+- **ホバー状態**: 背景色の明度を10%変更
+
+## 状態別色分け
+
+### 段落文字数状態
+- **通常**: Text Primary色
+- **文字数過多**: Error色（#D55E00）
+- **文字数不足**: Warning色（#F0E442、黒テキスト併用）
+
+### ROIスコア表示
+- **高スコア（0.8以上）**: Info色系統
+- **中スコア（0.5-0.8）**: Primary色系統  
+- **低スコア（0.5未満）**: Text Secondary色系統
+
+## 印刷・モノクロ対応
+- すべてのグラフ・チャートでパターンや記号を併用
+- グレースケール変換時も十分な明度差を確保
+- 線種（実線・破線・点線）で情報を区別

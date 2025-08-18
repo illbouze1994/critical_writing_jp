@@ -207,7 +207,7 @@ export class UIDecorations {
     result: ParagraphAnalysisResult,
     llmResults?: Map<string, any>
   ): Promise<void> {
-    if (!editor || editor.document.languageId !== 'markdown') {
+    if (!editor || (editor.document.languageId !== 'markdown' && editor.document.languageId !== 'plaintext')) {
       return;
     }
 
@@ -296,11 +296,11 @@ export class UIDecorations {
     const connectionItem = this.statusBarItems.get('connection');
     if (connectionItem) {
       if (status.isOnline) {
-        connectionItem.text = '🌐 オンライン';
+        connectionItem.text = 'オンライン';
         connectionItem.color = new vscode.ThemeColor('statusBar.foreground');
         connectionItem.tooltip = 'CriticalWritingJp: オンライン機能が利用可能です';
       } else {
-        connectionItem.text = '📴 オフライン';
+        connectionItem.text = 'オフライン';
         connectionItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
         connectionItem.tooltip = 'CriticalWritingJp: オフラインモードで動作中';
       }
@@ -310,9 +310,9 @@ export class UIDecorations {
     // 段落統計の更新
     const statsItem = this.statusBarItems.get('stats');
     if (statsItem) {
-      statsItem.text = `📝 ${status.totalParagraphs}段落`;
+      statsItem.text = `${status.totalParagraphs}段落`;
       if (status.issueCount > 0) {
-        statsItem.text += ` (⚠️ ${status.issueCount})`;
+        statsItem.text += ` (${status.issueCount})`;
         statsItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
       } else {
         statsItem.color = new vscode.ThemeColor('statusBar.foreground');
@@ -325,11 +325,11 @@ export class UIDecorations {
     const llmItem = this.statusBarItems.get('llm');
     if (llmItem) {
       if (status.llmEnabled) {
-        llmItem.text = '🤖 LLM有効';
+        llmItem.text = 'LLM有効';
         llmItem.color = new vscode.ThemeColor('statusBarItem.prominentForeground');
         llmItem.tooltip = 'LLM機能が有効です。クリックして設定を変更';
       } else {
-        llmItem.text = '🤖 LLM無効';
+        llmItem.text = 'LLM無効';
         llmItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
         llmItem.tooltip = 'LLM機能が無効です。クリックして有効化';
       }
