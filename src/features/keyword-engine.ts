@@ -82,7 +82,7 @@ export class KeywordEngine {
           return;
         }
 
-        const dicPath = path.join(this.context.extensionPath, 'node_modules', 'kuromoji', 'dict');
+        const dicPath = path.join(this.context.extensionPath, 'dist', 'dict');
         console.log(`[KeywordEngine] Initializing kuromoji with dictionary path: ${dicPath}`);
 
         kuromoji.builder({ dicPath }).build((err, tokenizer) => {

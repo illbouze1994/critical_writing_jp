@@ -1,5 +1,6 @@
 const { build } = require('esbuild');
-const { existsSync, mkdirSync } = require('fs');
+const fs = require('fs');
+const { existsSync, mkdirSync } = fs;
 const path = require('path');
 
 // コマンドライン引数解析
@@ -29,6 +30,43 @@ if (!existsSync(distDir)) {
   mkdirSync(distDir, { recursive: true });
 }
 
+function copyAssets() {
+  console.log('📂 Copying assets...');
+  try {
+    // Kuromoji辞書ファイルをコピー
+    const kuromojiSrc = path.resolve(__dirname, '..', 'node_modules', 'kuromoji', 'dict');
+    const kuromojiDest = path.resolve(__dirname, '..', 'dist', 'dict');
+    if (fs.existsSync(kuromojiSrc)) {
+      if (!fs.existsSync(kuromojiDest)) {
+        fs.mkdirSync(kuromojiDest, { recursive: true });
+      }
+      fs.cpSync(kuromojiSrc, kuromojiDest, { recursive: true });
+      console.log('  - Kuromoji dictionary copied to dist/dict');
+    } else {
+      console.warn('  - Kuromoji dictionary source not found, skipping copy.');
+    }
+
+    // webview-assetsをコピー
+    const webviewAssetsSrc = path.resolve(__dirname, '..', 'webview-assets');
+    const webviewAssetsDest = path.resolve(__dirname, '..', 'dist', 'webview-assets');
+    if (fs.existsSync(webviewAssetsSrc)) {
+      if (!fs.existsSync(webviewAssetsDest)) {
+        fs.mkdirSync(webviewAssetsDest, { recursive: true });
+      }
+      fs.cpSync(webviewAssetsSrc, webviewAssetsDest, { recursive: true });
+      console.log('  - Webview assets copied to dist/webview-assets');
+    } else {
+      // webview-assets はオプションではないので警告を出す
+      console.warn('  - webview-assets directory not found, skipping copy.');
+    }
+
+    console.log('  ✅ Assets copied successfully!');
+  } catch (error) {
+    console.error('  ❌ Asset copying failed:', error);
+    process.exit(1);
+  }
+}
+
 async function buildExtension() {
   try {
     console.log(`🔨 Building extension (${isDev ? 'development' : 'production'})...`);
@@ -50,6 +88,9 @@ async function buildExtension() {
       }
     }
     
+    // アセットをコピー
+    copyAssets();
+
     console.log('✅ Build completed successfully!');
     return result;
   } catch (error) {
