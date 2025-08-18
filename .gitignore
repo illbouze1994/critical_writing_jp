@@ -144,3 +144,6 @@ vite.config.ts.timestamp-
 # Editor/IDE
 .idea/
 .vscode/
+
+# Artifact
+critical-writing-jp-1.0.0.vsix

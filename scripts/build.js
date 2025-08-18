@@ -37,7 +37,9 @@ const webviewBuildOptions = {
   treeShaking: true,
   format: 'esm',
   logLevel: 'info',
-  jsx: 'automatic'
+  jsx: 'transform',
+  jsxFactory: 'React.createElement',
+  jsxFragment: 'React.Fragment'
 };
 
 // distディレクトリが存在しない場合は作成

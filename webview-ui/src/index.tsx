@@ -1,13 +1,13 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import App from './App';
 
-const root = ReactDOM.createRoot(
-  document.getElementById('app') as HTMLElement
-);
-
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const container = document.getElementById('app');
+if (container) {
+  ReactDOM.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+    container
+  );
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Div, Text, Button, Dropdown, Anchor } from "atomize";
-import { ThemeProvider, StyleReset, DefaultTheme } from 'styletron-react';
+import { Div, Text, Dropdown, Anchor, ThemeProvider, StyleReset } from "atomize";
+import { Provider as StyletronProvider } from 'styletron-react';
+import type { DefaultTheme } from 'atomize/dist/types';
 import StatisticsPanel from './components/StatisticsPanel';
 import RoiMapPanel from './components/RoiMapPanel';
 import ResultsTable from './components/ResultsTable';
