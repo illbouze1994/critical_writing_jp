@@ -44,6 +44,30 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         await initializeAnalyzer(context);
         console.log('[CriticalWritingJp] Analyzer initialized successfully');
+
+        // 初期状態でMarkdownエディタが開かれている場合は解析を実行
+        const editor = vscode.window.activeTextEditor;
+        if (editor && editor.document.languageId === 'markdown' && !editor.document.isClosed) {
+          lastActiveMarkdownEditor = editor;
+          const { runAnalysis } = await import('./features/analyzer');
+          await runAnalysis(editor.document);
+
+          // 既にパネルが開いていれば更新（自動で開かない）
+          try {
+            const { updatePanel } = await import('./features/panel');
+            await updatePanel();
+          } catch (e) {
+            console.warn('[CriticalWritingJp] Failed to update panel after initialization:', e);
+          }
+        }
+
+        // VSCode起動時にパネルを自動表示（横に表示しフォーカスは保持）
+        try {
+          const { createOrShowPanel } = await import('./features/panel');
+          await createOrShowPanel(context);
+        } catch (e) {
+          console.warn('[CriticalWritingJp] Failed to auto-open panel on startup:', e);
+        }
       } catch (error) {
         console.error('[CriticalWritingJp] Failed to initialize analyzer:', error);
         // アナライザー初期化失敗は警告のみ（拡張機能は基本機能で動作継続）
@@ -109,20 +133,9 @@ function registerTogglePanelCommand(store: DisposableStore, context: vscode.Exte
   store.add(vscode.commands.registerCommand('criticalWritingJp.togglePanel', 
     withErrorHandling(
       async () => {
-        // 初回実行時のみWebviewパネル機能を動的ロード
-        try {
-          const mod = await import('./features/panel');
-          await mod.createOrShowPanel(context);
-        } catch (errPrimary) {
-          console.warn('[CriticalWritingJp] Failed to load ./features/panel, trying fallback ./features/webview-panel', errPrimary);
-          try {
-            const modFallback = await import('./features/webview-panel');
-            await modFallback.createOrShowPanel(context);
-          } catch (errFallback) {
-            console.error('[CriticalWritingJp] Failed to load both panel modules', { errPrimary, errFallback });
-            throw errFallback;
-          }
-        }
+        // 初回実行時のみWebviewパネル機能を動的ロード（フォールバックは使用しない）
+        const mod = await import('./features/panel');
+        await mod.createOrShowPanel(context);
       },
       'Failed to toggle panel',
       'パネルの表示に失敗しました'
@@ -188,7 +201,8 @@ function registerConfigureGoogleBooksKeyCommand(store: DisposableStore, context:
 function registerRunKeywordNowCommand(store: DisposableStore) {
   store.add(vscode.commands.registerCommand('criticalWritingJp.runKeywordNow', async () => {
     try {
-      if (!lastActiveMarkdownEditor || lastActiveMarkdownEditor.document.isClosed) {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || editor.document.languageId !== 'markdown' || editor.document.isClosed) {
         vscode.window.showWarningMessage('Markdownファイルを開いてください');
         return;
       }
@@ -196,9 +210,9 @@ function registerRunKeywordNowCommand(store: DisposableStore) {
       vscode.window.showInformationMessage('キーワード解析を実行中...');
       // 実際の解析処理は遅延ロード
       const { runAnalysis } = await import('./features/analyzer');
-      await runAnalysis(lastActiveMarkdownEditor.document);
+      await runAnalysis(editor.document);
 
-      // パネルの表示を更新
+      // パネルが開いていれば更新（開いていない場合は何もしない）
       const { updatePanel } = await import('./features/panel');
       await updatePanel();
 
@@ -283,18 +297,12 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
 
-      // Markdownファイルが開かれた時に自動的にパネルを表示
+      // パネルが既に開かれていれば更新（自動で開かない）
       try {
-        const mod = await import('./features/panel');
-        await mod.createOrShowPanel(context);
-      } catch (errPrimary) {
-        console.warn('[CriticalWritingJp] Failed to load ./features/panel on editor change, trying fallback ./features/webview-panel', errPrimary);
-        try {
-          const modFallback = await import('./features/webview-panel');
-          await modFallback.createOrShowPanel(context);
-        } catch (errFallback) {
-          console.warn('[CriticalWritingJp] Failed to auto-open panel with both modules', { errPrimary, errFallback });
-        }
+        const { updatePanel } = await import('./features/panel');
+        await updatePanel();
+      } catch (error) {
+        console.warn('[CriticalWritingJp] Failed to update panel on editor change:', error);
       }
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);

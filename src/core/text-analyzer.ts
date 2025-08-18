@@ -170,7 +170,7 @@ export class TextAnalyzer {
 
     // 常用漢字使用率用
     const joyoKanjiUsage = {
-      labels: ['常用漢字', '常用漢字以外'],
+      labels: ['常用漢字', '非常用漢字'],
       datasets: [{
         data: [
           analysis.counts[CharacterType.Kanji] - analysis.nonJoyoKanjiCount,

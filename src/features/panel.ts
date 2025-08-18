@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AnalysisResult } from '../core/types';
-import { getCachedAnalysisResult } from './analyzer';
+import { getCachedAnalysisResult, getLastAnalyzedUri, runAnalysis, runAnalysisForUri } from './analyzer';
 import { TextAnalyzer } from '../core/text-analyzer';
 
 let currentPanel: vscode.WebviewPanel | undefined;
@@ -15,8 +15,10 @@ export async function createOrShowPanel(context: vscode.ExtensionContext): Promi
     : undefined;
 
   if (currentPanel) {
-    // 既存のパネルを表示
-    currentPanel.reveal(columnToShowIn);
+    // 既存のパネルをサイドに表示（エディタのフォーカスは維持）
+    try {
+      currentPanel.reveal(vscode.ViewColumn.Beside, true);
+    } catch {}
     await updatePanelContent();
     return;
   }
@@ -25,10 +27,10 @@ export async function createOrShowPanel(context: vscode.ExtensionContext): Promi
   currentPanel = vscode.window.createWebviewPanel(
     'criticalWritingJp.panel',
     'CriticalWritingJp',
-    columnToShowIn || vscode.ViewColumn.One,
+    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
     {
       enableScripts: true,
-      retainContextWhenHidden: false,
+      retainContextWhenHidden: true,
       localResourceRoots: [
         vscode.Uri.joinPath(context.extensionUri, 'webview')
       ]
@@ -37,6 +39,13 @@ export async function createOrShowPanel(context: vscode.ExtensionContext): Promi
 
   // パネルのHTMLコンテンツを設定
   currentPanel.webview.html = getWebviewContent(currentPanel.webview);
+
+  // 表示状態の変更で再描画（移動や表示時）
+  currentPanel.onDidChangeViewState(() => {
+    if (currentPanel && currentPanel.visible) {
+      updatePanelContent();
+    }
+  }, null, context.subscriptions);
 
   // パネルが破棄されたときの処理
   currentPanel.onDidDispose(() => {
@@ -64,39 +73,60 @@ async function updatePanelContent(): Promise<void> {
     return;
   }
 
+  // 対象ドキュメントURIを解決（アクティブMD → 可視MD → 最終解析URI）
+  let targetUri: string | undefined;
   const activeEditor = vscode.window.activeTextEditor;
-  if (!activeEditor || activeEditor.document.languageId !== 'markdown') {
-    // Markdownファイルが開かれていない場合
-    currentPanel.webview.postMessage({
-      type: 'update',
-      payload: {
-        hasContent: false,
-        message: 'Markdownファイルを開いてください'
-      }
-    });
+  if (activeEditor && activeEditor.document.languageId === 'markdown') {
+    targetUri = activeEditor.document.uri.toString();
+  }
+  if (!targetUri) {
+    const visibleMd = vscode.window.visibleTextEditors.find(e => e.document.languageId === 'markdown');
+    if (visibleMd) {
+      targetUri = visibleMd.document.uri.toString();
+    }
+  }
+  if (!targetUri) {
+    targetUri = getLastAnalyzedUri();
+  }
+
+  if (!targetUri) {
+    // 対象ドキュメントなし
+    try {
+      currentPanel.webview.postMessage({
+        type: 'update',
+        payload: {
+          hasContent: false,
+          message: 'Markdownファイルを開いてください'
+        }
+      });
+    } catch {}
     return;
   }
 
-  // キャッシュから解析結果を取得
-  const result = getCachedAnalysisResult(activeEditor.document.uri.toString());
+  const result = getCachedAnalysisResult(targetUri);
   if (!result) {
-    currentPanel.webview.postMessage({
-      type: 'update',
-      payload: {
-        hasContent: false,
-        message: '解析中...'
-      }
-    });
+    try {
+      currentPanel.webview.postMessage({
+        type: 'update',
+        payload: {
+          hasContent: false,
+          message: '解析中...'
+        }
+      });
+    } catch {}
     return;
   }
 
   // 解析結果をWebviewに送信
   const payload = createPanelPayload(result);
-  currentPanel.webview.postMessage({
-    type: 'update',
-    payload
-  });
+  try {
+    currentPanel.webview.postMessage({
+      type: 'update',
+      payload
+    });
+  } catch {}
 }
+
 
 /**
  * パネル表示用のデータを作成
@@ -184,6 +214,19 @@ async function handleWebviewMessage(message: any): Promise<void> {
       break;
     
     case 'refresh':
+      try {
+        const active = vscode.window.activeTextEditor;
+        if (active && active.document.languageId === 'markdown') {
+          await runAnalysis(active.document);
+        } else {
+          const lastUri = getLastAnalyzedUri();
+          if (lastUri) {
+            await runAnalysisForUri(lastUri);
+          }
+        }
+      } catch (e) {
+        console.warn('[Panel] Refresh analysis failed:', e);
+      }
       await updatePanelContent();
       break;
     
@@ -309,6 +352,7 @@ function getWebviewContent(webview: vscode.Webview): string {
             flex: 1;
             margin-right: 12px;
             color: var(--vscode-editor-foreground);
+            font-size: 14px;
         }
         .paragraph-meta {
             display: flex;
@@ -321,7 +365,7 @@ function getWebviewContent(webview: vscode.Webview): string {
             margin-bottom: 2px;
         }
         .paragraph-type {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--vscode-descriptionForeground);
             text-transform: uppercase;
         }
@@ -399,8 +443,8 @@ function getWebviewContent(webview: vscode.Webview): string {
     <div class="header">
         <div class="title">📝 CriticalWritingJp</div>
         <div>
-            <button class="button button-secondary" onclick="refresh()">更新</button>
-            <button class="button" onclick="openSettings()">設定</button>
+            <button class="button" id="refreshBtn">更新</button>
+            <button class="button" id="settingsBtn">設定</button>
         </div>
     </div>
     
@@ -410,6 +454,29 @@ function getWebviewContent(webview: vscode.Webview): string {
 
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        
+        // Wire header buttons with CSP-safe listeners
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) { refreshBtn.addEventListener('click', () => vscode.postMessage({ type: 'refresh' })); }
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (settingsBtn) { settingsBtn.addEventListener('click', () => vscode.postMessage({ type: 'openSettings' })); }
+        
+        // Event delegation for paragraph click
+        const contentEl = document.getElementById('content');
+        if (contentEl) {
+            contentEl.addEventListener('click', (ev) => {
+                const target = ev.target;
+                const item = target && target.closest ? target.closest('.paragraph-item') : null;
+                if (item) {
+                    const id = item.getAttribute('data-id');
+                    const start = Number(item.getAttribute('data-range-start'));
+                    const end = Number(item.getAttribute('data-range-end'));
+                    if (id != null && !Number.isNaN(start) && !Number.isNaN(end)) {
+                        vscode.postMessage({ type: 'jumpToParagraph', paragraphId: id, range: { start, end } });
+                    }
+                }
+            });
+        }
         
         function updateContent(payload) {
             const content = document.getElementById('content');
@@ -422,27 +489,6 @@ function getWebviewContent(webview: vscode.Webview): string {
             const { summary, rows, charts, characterAnalysis } = payload;
             
             content.innerHTML = \`
-                <!-- 円グラフセクション -->
-                <div class="charts-section">
-                    <div class="charts-title">📊 文字種バランス・常用漢字使用状況</div>
-                    <div class="charts-grid">
-                        <div class="chart-container">
-                            <div class="chart-label">文字種バランス</div>
-                            <canvas id="characterBalanceChart" class="chart-canvas"></canvas>
-                            <div class="chart-stats">
-                                総文字数: ${characterAnalysis.totalChars.toLocaleString()}文字
-                            </div>
-                        </div>
-                        <div class="chart-container">
-                            <div class="chart-label">常用漢字使用率</div>
-                            <canvas id="joyoKanjiChart" class="chart-canvas"></canvas>
-                            <div class="chart-stats">
-                                使用率: ${Math.round(characterAnalysis.joyoKanjiUsage * 100)}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <div class="summary">
                     <div class="summary-item">
                         <div class="summary-value">\${summary.totalParagraphs}</div>
@@ -461,33 +507,53 @@ function getWebviewContent(webview: vscode.Webview): string {
                         <div class="summary-label">不足 (<\${summary.thresholds.min})</div>
                     </div>
                 </div>
-                <div class="paragraph-list">
-                    \${rows.map((row, index) => \`
-                        <div class="paragraph-item" onclick="jumpToParagraph('\${row.id}', \${JSON.stringify(row.range).replace(/"/g, '&quot;')})">
-                            <div class="paragraph-preview">\${row.preview}</div>
-                            <div class="paragraph-meta">
-                                <div class="paragraph-chars status-\${row.status}">\${row.chars}文字</div>
-                                <div class="paragraph-type">\${row.type}</div>
+                
+                <!-- 円グラフセクション -->
+                <div class="charts-section">
+                    <div class="charts-title">📊 文字種バランス・常用漢字使用状況</div>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-label">文字種バランス</div>
+                            <canvas id="characterBalanceChart" class="chart-canvas"></canvas>
+                            <div class="chart-stats">
+                                総文字数: \${characterAnalysis.totalChars.toLocaleString()}文字
                             </div>
                         </div>
+                        <div class="chart-container">
+                            <div class="chart-label">常用漢字使用率</div>
+                            <canvas id="joyoKanjiChart" class="chart-canvas"></canvas>
+                            <div class="chart-stats">
+                                使用率: \${Math.round(characterAnalysis.joyoKanjiUsage * 100)}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="paragraph-list">
+                    \${rows.map((row, index) => \`
+                        <div class=\"paragraph-item\" data-id=\"\${row.id}\" data-range-start=\"\${row.range.start}\" data-range-end=\"\${row.range.end}\">\n                            <div class=\"paragraph-preview\">\${row.preview}</div>\n                            <div class=\"paragraph-meta\">\n                                <div class=\"paragraph-chars status-\${row.status}\">\${row.chars}文字</div>\n                                <div class=\"paragraph-type\">\${row.type}</div>\n                            </div>\n                        </div>
                     \`).join('')}
                 </div>
             \`;
             
             // 円グラフを描画
             setTimeout(() => {
-                drawCharts(charts);
+                const styles = getComputedStyle(document.documentElement);
+                const legendColor = (styles.getPropertyValue('--vscode-foreground') || '').trim() || '#cccccc';
+                const borderColor = (styles.getPropertyValue('--vscode-panel-border') || '').trim() || '#444444';
+                drawCharts(charts, { legendColor, borderColor });
             }, 100);
         }
         
-        function drawCharts(charts) {
-            // 既存のチャートインスタンスがあれば破棄
-            if (window.characterBalanceChart) {
+        function drawCharts(charts, theme) {
+            // 既存のチャートインスタンスがあれば安全に破棄
+            if (window.characterBalanceChart && typeof window.characterBalanceChart.destroy === 'function') {
                 window.characterBalanceChart.destroy();
             }
-            if (window.joyoKanjiChart) {
+            window.characterBalanceChart = undefined;
+            if (window.joyoKanjiChart && typeof window.joyoKanjiChart.destroy === 'function') {
                 window.joyoKanjiChart.destroy();
             }
+            window.joyoKanjiChart = undefined;
             
             // 文字種バランス円グラフ
             const balanceCtx = document.getElementById('characterBalanceChart');
@@ -502,7 +568,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                             legend: {
                                 position: 'bottom',
                                 labels: {
-                                    color: 'var(--vscode-foreground)',
+                                    color: theme.legendColor,
                                     font: {
                                         size: 11
                                     },
@@ -522,7 +588,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                         elements: {
                             arc: {
                                 borderWidth: 1,
-                                borderColor: 'var(--vscode-panel-border)'
+                                borderColor: theme.borderColor
                             }
                         }
                     }
@@ -542,7 +608,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                             legend: {
                                 position: 'bottom',
                                 labels: {
-                                    color: 'var(--vscode-foreground)',
+                                    color: theme.legendColor,
                                     font: {
                                         size: 11
                                     },
@@ -562,7 +628,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                         elements: {
                             arc: {
                                 borderWidth: 1,
-                                borderColor: 'var(--vscode-panel-border)'
+                                borderColor: theme.borderColor
                             }
                         }
                     }

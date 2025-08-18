@@ -30,6 +30,7 @@
     "analysis"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:markdown",
     "onCommand:criticalWritingJp.togglePanel",
     "onCommand:criticalWritingJp.enableLLM",

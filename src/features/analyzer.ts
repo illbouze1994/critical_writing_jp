@@ -11,6 +11,7 @@ const debouncedAnalysis = debounce(performAnalysis, 150);
 
 // 解析結果のキャッシュ（ドキュメントURIをキー）
 const analysisCache = new Map<string, AnalysisResult>();
+let lastAnalyzedUri: string | undefined;
 
 // 診断情報コレクション
 let diagnosticCollection: vscode.DiagnosticCollection;
@@ -91,6 +92,7 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // キャッシュに保存
     analysisCache.set(document.uri.toString(), result);
+    lastAnalyzedUri = document.uri.toString();
     
     const elapsedTime = Date.now() - startTime;
     console.log(`[Analyzer] Analysis completed in ${elapsedTime}ms (${paragraphs.length} paragraphs, ${keywords.size} keyword sets, ${scores.size} scores)`);
@@ -542,6 +544,27 @@ function updateStatusBar(result: AnalysisResult, settings: any): void {
  */
 export function getCachedAnalysisResult(documentUri: string): AnalysisResult | undefined {
   return analysisCache.get(documentUri);
+}
+
+/**
+ * 最後に解析されたドキュメントURIを取得
+ */
+export function getLastAnalyzedUri(): string | undefined {
+  return lastAnalyzedUri;
+}
+
+/**
+ * 指定URIのドキュメントを開いて解析を実行
+ */
+export async function runAnalysisForUri(uriString: string): Promise<AnalysisResult | undefined> {
+  try {
+    const uri = vscode.Uri.parse(uriString);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    return await runAnalysis(doc);
+  } catch (e) {
+    console.warn('[Analyzer] Failed to run analysis for URI:', uriString, e);
+    return undefined;
+  }
 }
 
 /**
