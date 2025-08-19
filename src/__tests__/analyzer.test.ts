@@ -4,7 +4,7 @@
  */
 
 import { runAnalysis, handleTextChange, getCachedAnalysisResult } from '../features/analyzer';
-import { MockTextDocument } from './__mocks__/vscode';
+import { MockTextDocument, Uri } from './__mocks__/vscode';
 import { ParagraphType } from '../core/types';
 
 // Mock the getSettings function
@@ -24,8 +24,8 @@ describe('Analyzer - Document Cache Management', () => {
     const content1 = ` 最初の文書です。テスト用の内容です。`;
     const content2 = ` 二番目の文書です。別のテスト内容です。`;
     
-    const document1 = new MockTextDocument(content1, 'markdown');
-    const document2 = new MockTextDocument(content2, 'markdown');
+    const document1 = new MockTextDocument(content1, 'markdown', Uri.file('test1.md'));
+    const document2 = new MockTextDocument(content2, 'markdown', Uri.file('test2.md'));
     
     // Run analysis on both documents
     const result1 = await runAnalysis(document1 as any);

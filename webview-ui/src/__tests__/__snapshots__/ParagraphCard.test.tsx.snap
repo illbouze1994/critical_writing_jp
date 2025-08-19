@@ -1,0 +1,59 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`ParagraphCard renders correctly with given paragraph data 1`] = `
+<DocumentFragment>
+  <div
+    class="card"
+  >
+    <div
+      class="card-body"
+    >
+      <div
+        class="row row align-items-center"
+      >
+        <div
+          class="col"
+        >
+          <div
+            class="text-wrap p-lg-6"
+          >
+            This is a test paragraph that is long enough to be truncated....
+          </div>
+        </div>
+        <div
+          class="col"
+        >
+          <div
+            style="text-align: center;"
+          >
+            <div
+              class="lg"
+            >
+              150
+            </div>
+            <div
+              class="text-muted"
+            >
+              文字
+            </div>
+          </div>
+        </div>
+        <div
+          class="col"
+        >
+          <div>
+            CharacterBalanceChart
+          </div>
+        </div>
+        <div
+          class="col"
+        >
+          <div>
+            KanjiUsageChart
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

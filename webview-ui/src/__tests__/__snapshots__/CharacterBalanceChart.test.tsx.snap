@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`CharacterBalanceChart renders a smaller version correctly 1`] = `
+<DocumentFragment>
+  <div
+    style="width: 400px; height: 250px;"
+  />
+</DocumentFragment>
+`;
+
+exports[`CharacterBalanceChart renders correctly with given data 1`] = `
+<DocumentFragment>
+  <div
+    style="width: 400px; height: 250px;"
+  />
+</DocumentFragment>
+`;

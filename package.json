@@ -88,13 +88,10 @@
         "criticalWritingJp.keyword.mode": {
           "type": "string",
           "enum": [
-            "rules",
-            "tfidf",
-            "embed",
             "flashtext"
           ],
           "default": "flashtext",
-          "description": "キーワード抽出モード",
+          "description": "キーワード抽出モード (flashtextに固定)",
           "order": 10
         },
         "criticalWritingJp.roi.weights": {
@@ -244,9 +241,9 @@
     "build-and-install:skip-install": "node scripts/build-and-install.js --skip-install",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "jest",
-    "test:unit": "jest --coverage",
-    "test:watch": "jest --watch",
+    "test": "jest --projects jest.config.js webview-ui/jest.config.js",
+    "test:unit": "jest --projects jest.config.js webview-ui/jest.config.js --coverage",
+    "test:watch": "jest --projects jest.config.js webview-ui/jest.config.js --watch",
     "test:coverage": "jest --coverage --coverageReporters=text-lcov",
     "vscode:prepublish": "npm run build"
   },
@@ -266,13 +263,16 @@
     "react-dom": "16.14.0",
     "@types/react": "^16.14.34",
     "@types/react-dom": "^16.9.19",
-    "atomize": "^1.0.28",
-    "react-transition-group": "^4.4.5",
-    "@types/react-transition-group": "^4.4.10",
-    "styletron-react": "5.2.7",
-    "styletron-engine-atomic": "^1.6.2"
+    "@types/react-beautiful-dnd": "^13.1.8",
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^12.1.5",
+    "jest-environment-jsdom": "^29.7.0"
   },
   "dependencies": {
+    "tabler-react": "^1.30.1",
+    "react-feather": "^2.0.10",
+    "react-beautiful-dnd": "^13.1.1",
+    "recharts": "^2.12.0",
     "@types/chart.js": "^2.9.41",
     "chart.js": "^4.5.0",
     "joyo-kanji": "^0.2.1",

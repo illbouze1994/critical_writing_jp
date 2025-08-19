@@ -4,7 +4,7 @@ import { getCachedAnalysisResult, getLastAnalyzedUri, runAnalysis, runAnalysisFo
 import { TextAnalyzer } from '../core/text-analyzer';
 
 let currentPanel: vscode.WebviewPanel | undefined;
-let keywordHighlightEnabled = false; // キーワードハイライト機能の状態（デフォルトはOFF）
+let keywordHighlightEnabled = true; // キーワードハイライト機能の状態（デフォルトはON）
 let extensionContext: vscode.ExtensionContext | undefined;
 
 /**
@@ -150,40 +150,22 @@ function createPanelPayload(result: AnalysisResult) {
   const totalParagraphs = result.paragraphs.length;
   const totalChars = result.paragraphs.reduce((sum, p) => sum + p.chars, 0);
   
-  // 設定値を取得（簡易版）
   const config = vscode.workspace.getConfiguration('criticalWritingJp');
   const minThreshold = config.get<number>('counting.threshold.min', 200);
   const maxThreshold = config.get<number>('counting.threshold.max', 800);
-  const previewChars = config.get<number>('ui.preview.headChars', 40);
   
   const overCount = result.paragraphs.filter(p => p.chars > maxThreshold).length;
   const underCount = result.paragraphs.filter(p => p.chars < minThreshold).length;
 
-  // 文字種分析を実行（全段落のテキストを結合）
-  const allTexts = result.paragraphs.map(p => p.text);
-  const characterAnalysis = TextAnalyzer.analyzeParagraphs(allTexts);
-  const pieChartData = TextAnalyzer.createPieChartData(characterAnalysis);
-
-  const rows = result.paragraphs.map(paragraph => {
-    // プレビューテキストを作成
-    const previewText = paragraph.text.replace(/\n/g, ' ').substring(0, previewChars);
-    const preview = previewText.length < paragraph.text.length ? `${previewText}...` : previewText;
-
-    // 状態を判定
-    let status: 'normal' | 'over' | 'under' = 'normal';
-    if (paragraph.chars > maxThreshold) {
-      status = 'over';
-    } else if (paragraph.chars < minThreshold) {
-      status = 'under';
-    }
-
+  // Create data for ParagraphDashboard
+  const paragraphs = result.paragraphs.map(p => {
+    const { charBalance, kanjiUsage } = TextAnalyzer.getRechartsDataForParagraph(p.text);
     return {
-      id: paragraph.id,
-      preview,
-      chars: paragraph.chars,
-      type: paragraph.type,
-      status,
-      range: paragraph.range
+      id: p.id,
+      content: p.text,
+      charCount: p.chars,
+      charBalance,
+      kanjiUsage
     };
   });
 
@@ -194,24 +176,8 @@ function createPanelPayload(result: AnalysisResult) {
       totalChars,
       overCount,
       underCount,
-      thresholds: {
-        min: minThreshold,
-        max: maxThreshold
-      }
     },
-    // 円グラフデータを追加
-    charts: {
-      characterBalance: pieChartData.characterBalance,
-      joyoKanjiUsage: pieChartData.joyoKanjiUsage
-    },
-    // 文字種分析結果を追加
-    characterAnalysis: {
-      totalChars: characterAnalysis.totalChars,
-      joyoKanjiUsage: characterAnalysis.joyoKanjiUsage,
-      ratios: characterAnalysis.ratios,
-      counts: characterAnalysis.counts
-    },
-    rows,
+    paragraphs, // This is the new data for the dashboard
     timestamp: result.timestamp
   };
 }
@@ -261,6 +227,10 @@ export async function handleWebviewMessage(message: any): Promise<void> {
         console.warn('[Panel] Toggle keyword highlight failed:', e);
         vscode.window.showErrorMessage('キーワードハイライトの切り替えに失敗しました');
       }
+      break;
+
+    case 'reorderParagraphs':
+      await reorderParagraphs(message.payload);
       break;
     
     default:
@@ -895,5 +865,70 @@ function getNonce(): string {
 export async function updatePanel(): Promise<void> {
   if (currentPanel) {
     await updatePanelContent();
+  }
+}
+
+/**
+ * エディタ内の段落を並べ替える
+ * @param newOrderParagraphIds 並べ替え後の段落IDの配列
+ */
+async function reorderParagraphs(newOrderParagraphIds: string[]): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('並べ替え操作を行うには、対象のファイルがアクティブである必要があります。');
+    return;
+  }
+
+  const document = editor.document;
+  const cachedResult = getCachedAnalysisResult(document.uri.toString());
+
+  if (!cachedResult || !cachedResult.paragraphs) {
+    vscode.window.showWarningMessage('並べ替えの基準となる解析データが見つかりません。');
+    return;
+  }
+
+  const originalParagraphs = cachedResult.paragraphs;
+
+  // IDから段落のテキストを取得するためのマップを作成
+  const paragraphTextMap = new Map(originalParagraphs.map(p => [p.id, p.text]));
+
+  const edit = new vscode.WorkspaceEdit();
+
+  if (originalParagraphs.length !== newOrderParagraphIds.length) {
+    vscode.window.showErrorMessage('段落数が一致しないため、並べ替えを中止しました。');
+    return;
+  }
+
+  // 元の各段落の位置に、新しい順序に基づいたテキストを配置する
+  for (let i = 0; i < originalParagraphs.length; i++) {
+    const originalParagraph = originalParagraphs[i];
+    const newParagraphId = newOrderParagraphIds[i];
+    const newText = paragraphTextMap.get(newParagraphId);
+
+    if (newText === undefined) {
+      vscode.window.showErrorMessage(`ID '${newParagraphId}' の段落が見つかりませんでした。並べ替えを中止します。`);
+      return;
+    }
+
+    const startPos = document.positionAt(originalParagraph.range.start);
+    const endPos = document.positionAt(originalParagraph.range.end);
+    const range = new vscode.Range(startPos, endPos);
+
+    edit.replace(document.uri, range, newText);
+  }
+
+  try {
+    const success = await vscode.workspace.applyEdit(edit);
+    if (success) {
+      vscode.window.setStatusBarMessage('段落を並べ替えました。', 3000);
+      // 並べ替え後に再解析を実行して、UIを最新の状態に更新する
+      await runAnalysis(document);
+      await updatePanel();
+    } else {
+      vscode.window.showErrorMessage('段落の並べ替えに失敗しました。');
+    }
+  } catch (error) {
+    console.error('Failed to apply paragraph reorder edit:', error);
+    vscode.window.showErrorMessage('段落の並べ替え中にエラーが発生しました。');
   }
 }
