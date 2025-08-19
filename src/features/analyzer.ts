@@ -68,12 +68,18 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // 設定を取得
     const config = vscode.workspace.getConfiguration('criticalWritingJp');
-    const keywordMode = config.get<'rules' | 'tfidf' | 'embed'>('keyword.mode', 'rules');
+    const keywordMode = config.get<'rules' | 'tfidf' | 'embed' | 'flashtext'>('keyword.mode', 'rules');
     const roiWeights = config.get('roi.weights', { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 });
     
-    // キーワード抽出
-    console.log(`[Analyzer] Extracting keywords (mode: ${keywordMode})`);
-    const keywords = await keywordEngine.extractKeywords(paragraphs, keywordMode);
+    // キーワード抽出（キーワードハイライトが有効な場合のみ）
+    let keywords = new Map();
+    const { isKeywordHighlightEnabled } = await import('./panel');
+    if (isKeywordHighlightEnabled()) {
+      console.log(`[Analyzer] Extracting keywords (mode: ${keywordMode})`);
+      keywords = await keywordEngine.extractKeywords(paragraphs, keywordMode);
+    } else {
+      console.log(`[Analyzer] Keyword extraction disabled - toggle is OFF`);
+    }
     
     // ROIスコア計算
     console.log(`[Analyzer] Calculating ROI scores`);
@@ -495,6 +501,12 @@ function calculateFeatures(text: string, type: ParagraphType): Record<string, nu
  * @param document 対象ドキュメント
  * @param result 解析結果
  */
+// 永続的な装飾タイプ（再解析時の重複作成を防止）
+let overDecorationType: vscode.TextEditorDecorationType | undefined;
+let underDecorationType: vscode.TextEditorDecorationType | undefined;
+let keywordDecorationType: vscode.TextEditorDecorationType | undefined;
+let charCountDecorationType: vscode.TextEditorDecorationType | undefined;
+
 async function updateEditorDecorations(
   document: vscode.TextDocument, 
   result: AnalysisResult
@@ -516,24 +528,31 @@ async function updateEditorDecorations(
   const { min, max } = settings.counting.threshold;
   
   // 装飾タイプを作成（初回のみ）
-  const overDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(255, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 0, 0, 0.3)',
-    borderRadius: '3px'
-  });
-  
-  const underDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(255, 165, 0, 0.1)',
-    border: '1px solid rgba(255, 165, 0, 0.3)',
-    borderRadius: '3px'
-  });
-  
-  const keywordDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(0, 255, 255, 0.15)',
-    border: '1px solid rgba(0, 255, 255, 0.4)',
-    borderRadius: '2px',
-    fontWeight: 'bold'
-  });
+  if (!overDecorationType) {
+    overDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 0, 0, 0.1)',
+      border: '1px solid rgba(255, 0, 0, 0.3)',
+      borderRadius: '3px'
+    });
+    analyzerDisposables?.add(overDecorationType);
+  }
+  if (!underDecorationType) {
+    underDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 165, 0, 0.1)',
+      border: '1px solid rgba(255, 165, 0, 0.3)',
+      borderRadius: '3px'
+    });
+    analyzerDisposables?.add(underDecorationType);
+  }
+  if (!keywordDecorationType) {
+    keywordDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(0, 255, 255, 0.15)',
+      border: '1px solid rgba(0, 255, 255, 0.4)',
+      borderRadius: '2px',
+      fontWeight: 'bold'
+    });
+    analyzerDisposables?.add(keywordDecorationType);
+  }
   
   const overRanges: vscode.Range[] = [];
   const underRanges: vscode.Range[] = [];
@@ -579,26 +598,29 @@ async function updateEditorDecorations(
   }
   
   // 装飾を適用
-  editor.setDecorations(overDecoration, overRanges);
-  editor.setDecorations(underDecoration, underRanges);
-  editor.setDecorations(keywordDecoration, keywordRanges);
+  if (overDecorationType) editor.setDecorations(overDecorationType, overRanges);
+  if (underDecorationType) editor.setDecorations(underDecorationType, underRanges);
+  if (keywordDecorationType) editor.setDecorations(keywordDecorationType, keywordRanges);
 
-  // 文字数カウントの装飾
-  const charCountDecoration = vscode.window.createTextEditorDecorationType({
-    after: {
-      margin: '0 0 0 1em',
-      color: new vscode.ThemeColor('editorCodeLens.foreground'),
-      fontStyle: 'italic',
-    },
-    before: {
-      margin: '0 1em 0 0',
-      color: new vscode.ThemeColor('editorCodeLens.foreground'),
-      fontStyle: 'italic',
-    },
-    rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
-  });
+  // 文字数カウントの装飾（初回のみ作成）
+  if (!charCountDecorationType) {
+    charCountDecorationType = vscode.window.createTextEditorDecorationType({
+      after: {
+        margin: '0 0 0 1em',
+        color: new vscode.ThemeColor('editorCodeLens.foreground'),
+        fontStyle: 'italic',
+      },
+      before: {
+        margin: '0 1em 0 0',
+        color: new vscode.ThemeColor('editorCodeLens.foreground'),
+        fontStyle: 'italic',
+      },
+      rangeBehavior: (vscode as any).DecorationRangeBehavior ? (vscode as any).DecorationRangeBehavior.ClosedOpen : undefined,
+    });
+    analyzerDisposables?.add(charCountDecorationType);
+  }
 
-  const charCountRanges = result.paragraphs.map(p => {
+  const charCountRanges = result.paragraphs.map((p, index) => {
     const startPos = document.positionAt(p.range.start);
     const endPos = document.positionAt(p.range.end);
     return {
@@ -612,7 +634,8 @@ async function updateEditorDecorations(
           contentText: ``,
         },
       },
-      hoverMessage: 'クリックしてパネルを開く',
+      // Only show hover message on the first paragraph to avoid duplication
+      hoverMessage: index === 0 ? 'クリックしてパネルを開く' : undefined,
     };
   });
 
@@ -626,7 +649,9 @@ async function updateEditorDecorations(
     },
   }));
 
-  editor.setDecorations(charCountDecoration, charCountRangesWithCommand as vscode.DecorationOptions[]);
+  if (charCountDecorationType) {
+    editor.setDecorations(charCountDecorationType, charCountRangesWithCommand as vscode.DecorationOptions[]);
+  }
   
   // ステータスバーの更新
   updateStatusBar(result, settings);

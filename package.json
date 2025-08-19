@@ -90,9 +90,10 @@
           "enum": [
             "rules",
             "tfidf",
-            "embed"
+            "embed",
+            "flashtext"
           ],
-          "default": "rules",
+          "default": "flashtext",
           "description": "キーワード抽出モード",
           "order": 10
         },
@@ -276,6 +277,7 @@
     "chart.js": "^4.5.0",
     "joyo-kanji": "^0.2.1",
     "kuromoji": "^0.1.2",
+    "python-shell": "^5.0.0",
     "textlint-rule-ja-joyo-or-jinmeiyo-kanji": "^1.0.3",
     "textlint-rule-preset-jtf-style": "^3.0.2"
   }

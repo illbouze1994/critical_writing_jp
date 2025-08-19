@@ -4,6 +4,7 @@ import { Paragraph, Keyword } from '../core/types';
 import { normalizeText } from '../core/utils';
 import * as kuromoji from 'kuromoji';
 import * as joyoKanji from 'joyo-kanji';
+import { extractWithFlashText } from './flashtext-bridge';
 
 /**
  * キーワード抽出エンジン
@@ -135,13 +136,23 @@ export class KeywordEngine {
    */
   async extractKeywords(
     paragraphs: Paragraph[], 
-    mode: 'rules' | 'tfidf' | 'embed' = 'rules'
+    mode: 'rules' | 'tfidf' | 'embed' | 'flashtext' = 'rules'
   ): Promise<Map<string, Keyword[]>> {
     // kuromojiトークナイザを初期化
     await this.initializeTokenizer();
     
     const result = new Map<string, Keyword[]>();
     
+    if (mode === 'flashtext') {
+      try {
+        const flashRes = await extractWithFlashText(paragraphs, this.context || undefined);
+        return flashRes;
+      } catch (e) {
+        console.warn('[KeywordEngine] FlashText mode failed, falling back to rules:', e);
+        // continue to rules mode fallback below
+      }
+    }
+
     if (mode === 'rules') {
       // kuromoji形態素解析ベース抽出
       for (const paragraph of paragraphs) {

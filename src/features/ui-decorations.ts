@@ -28,7 +28,10 @@ export enum DecorationStyle {
   Quote = 'quote',
   
   /** 高ROIスコアの段落 */
-  HighROI = 'highROI'
+  HighROI = 'highROI',
+  
+  /** キーワードハイライト */
+  Keyword = 'keyword'
 }
 
 /**
@@ -154,6 +157,15 @@ export class UIDecorations {
         color: 'gold',
         fontWeight: 'bold'
       }
+    }));
+
+    // キーワードハイライト装飾
+    this.decorationTypes.set(DecorationStyle.Keyword, vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 255, 0, 0.3)', // 薄い黄色
+      border: '1px solid rgba(255, 215, 0, 0.8)',
+      borderRadius: '2px',
+      overviewRulerColor: 'rgba(255, 215, 0, 0.8)',
+      overviewRulerLane: vscode.OverviewRulerLane.Center
     }));
   }
 
@@ -392,6 +404,68 @@ export class UIDecorations {
     });
     this.decorationTypes.clear();
     this.initializeDecorationTypes();
+  }
+
+  /**
+   * キーワードハイライトを適用
+   * @param editor エディタ
+   * @param keywords キーワードマップ
+   */
+  async applyKeywordHighlights(editor: vscode.TextEditor, keywords: Map<string, any[]>): Promise<void> {
+    if (!editor || !keywords || keywords.size === 0) {
+      console.log('[UIDecorations] No keywords available for highlighting');
+      return;
+    }
+
+    const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
+    if (!decorationType) {
+      console.error('[UIDecorations] Keyword decoration type not found');
+      return;
+    }
+
+    const ranges: vscode.Range[] = [];
+    const documentText = editor.document.getText();
+
+    // 各段落のキーワードをハイライト
+    keywords.forEach((keywordList, paragraphId) => {
+      keywordList.forEach(keyword => {
+        const keywordText = keyword.text || keyword;
+        if (!keywordText) return;
+
+        // キーワードのすべての出現箇所を検索
+        const regex = new RegExp(this.escapeRegex(keywordText), 'gi');
+        let match;
+        while ((match = regex.exec(documentText)) !== null) {
+          const startPos = editor.document.positionAt(match.index);
+          const endPos = editor.document.positionAt(match.index + keywordText.length);
+          ranges.push(new vscode.Range(startPos, endPos));
+        }
+      });
+    });
+
+    // キーワードハイライトを適用
+    editor.setDecorations(decorationType, ranges);
+    console.log(`[UIDecorations] Applied keyword highlights: ${ranges.length} keywords`);
+  }
+
+  /**
+   * キーワードハイライトをクリア
+   * @param editor エディタ
+   */
+  async clearKeywordHighlights(editor: vscode.TextEditor): Promise<void> {
+    const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
+    if (decorationType) {
+      editor.setDecorations(decorationType, []);
+      console.log('[UIDecorations] Cleared keyword highlights');
+    }
+  }
+
+  /**
+   * 正規表現用にエスケープ
+   * @param text エスケープするテキスト
+   */
+  private escapeRegex(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**

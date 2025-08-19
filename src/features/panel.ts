@@ -4,12 +4,17 @@ import { getCachedAnalysisResult, getLastAnalyzedUri, runAnalysis, runAnalysisFo
 import { TextAnalyzer } from '../core/text-analyzer';
 
 let currentPanel: vscode.WebviewPanel | undefined;
+let keywordHighlightEnabled = false; // キーワードハイライト機能の状態（デフォルトはOFF）
+let extensionContext: vscode.ExtensionContext | undefined;
 
 /**
  * パネルを作成または表示
  * @param context 拡張機能のコンテキスト
  */
 export async function createOrShowPanel(context: vscode.ExtensionContext): Promise<void> {
+  // Store the extension context for later use
+  extensionContext = context;
+  
   const columnToShowIn = vscode.window.activeTextEditor
     ? vscode.window.activeTextEditor.viewColumn
     : undefined;
@@ -104,7 +109,7 @@ async function updatePanelContent(): Promise<void> {
   }
 
   const result = getCachedAnalysisResult(targetUri);
-  if (!result) {
+  if (!result || !Array.isArray((result as any).paragraphs)) {
     try {
       currentPanel.webview.postMessage({
         type: 'update',
@@ -127,6 +132,14 @@ async function updatePanelContent(): Promise<void> {
   } catch {}
 }
 
+
+/**
+ * キーワードハイライト機能の状態を取得
+ * @returns キーワードハイライトが有効かどうか
+ */
+export function isKeywordHighlightEnabled(): boolean {
+  return keywordHighlightEnabled;
+}
 
 /**
  * パネル表示用のデータを作成
@@ -207,7 +220,7 @@ function createPanelPayload(result: AnalysisResult) {
  * Webviewからのメッセージを処理
  * @param message メッセージ
  */
-async function handleWebviewMessage(message: any): Promise<void> {
+export async function handleWebviewMessage(message: any): Promise<void> {
   switch (message.type) {
     case 'jumpToParagraph':
       await jumpToParagraph(message.paragraphId, message.range);
@@ -234,9 +247,135 @@ async function handleWebviewMessage(message: any): Promise<void> {
       await vscode.commands.executeCommand('workbench.action.openSettings', 'criticalWritingJp');
       break;
     
+    case 'toggleKeywordHighlight':
+      try {
+        await toggleKeywordHighlight(message.enabled);
+        // パネルに状態変更を通知
+        if (currentPanel) {
+          currentPanel.webview.postMessage({
+            type: 'keywordHighlightChanged',
+            enabled: message.enabled
+          });
+        }
+      } catch (e) {
+        console.warn('[Panel] Toggle keyword highlight failed:', e);
+        vscode.window.showErrorMessage('キーワードハイライトの切り替えに失敗しました');
+      }
+      break;
+    
     default:
       console.warn('[Panel] Unknown message type:', message.type);
       break;
+  }
+}
+
+/**
+ * キーワードハイライト機能の切り替え
+ * @param enabled ハイライトを有効にするかどうか
+ */
+async function toggleKeywordHighlight(enabled: boolean): Promise<void> {
+  keywordHighlightEnabled = enabled;
+  console.log(`[Panel] Keyword highlight ${enabled ? 'enabled' : 'disabled'}`);
+
+  // 対象エディタを解決（アクティブ → 可視 → 最終解析URIを開く）
+  const editor = await resolveEditorForHighlighting();
+  if (!editor) {
+    console.log('[Panel] No suitable editor found for keyword highlighting');
+    return;
+  }
+
+  if (enabled) {
+    // キーワードハイライトを有効にする - まず再解析を実行してキーワードを抽出
+    console.log(`[Panel] Re-analyzing document to extract keywords for highlighting`);
+    const { runAnalysis } = await import('./analyzer');
+    await runAnalysis(editor.document);
+
+    // 再解析後にキーワードハイライトを適用
+    await applyKeywordHighlights(editor);
+  } else {
+    // キーワードハイライトを無効にする（ハイライトを削除）
+    await clearKeywordHighlights(editor);
+  }
+}
+
+/**
+ * ハイライト適用対象となるエディタを解決
+ * カーソル挿入なしでも動作するよう、優先順位で選択
+ */
+async function resolveEditorForHighlighting(): Promise<vscode.TextEditor | undefined> {
+  // 1) アクティブエディタ
+  const active = vscode.window.activeTextEditor;
+  if (active && (active.document.languageId === 'markdown' || active.document.languageId === 'plaintext')) {
+    return active;
+  }
+
+  // 2) 可視エディタのうち最初のMarkdown/プレーンテキスト
+  const visibleEditors = (vscode.window.visibleTextEditors || []) as readonly vscode.TextEditor[];
+  const visible = visibleEditors.find(e => e.document && (e.document.languageId === 'markdown' || e.document.languageId === 'plaintext'));
+  if (visible) {
+    return visible;
+  }
+
+  // 3) 最後に解析したURIを開く（フォーカスを奪わない）
+  try {
+    const lastUri = getLastAnalyzedUri();
+    if (lastUri) {
+      const uri = vscode.Uri.parse(lastUri);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      // preserveFocus: true でフォーカスを奪わない
+      return await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
+    }
+  } catch (e) {
+    console.warn('[Panel] Failed to open last analyzed document for highlighting', e);
+  }
+
+  return undefined;
+}
+
+/**
+ * キーワードハイライトを適用
+ * @param editor エディタ
+ */
+async function applyKeywordHighlights(editor: vscode.TextEditor): Promise<void> {
+  try {
+    // キーワード抽出エンジンから現在の分析結果を取得
+    const uri = editor.document.uri.toString();
+    const result = getCachedAnalysisResult(uri);
+    
+    if (!result || !result.keywords) {
+      console.log('[Panel] No keywords available for highlighting');
+      return;
+    }
+
+    // UI装飾システムにキーワードハイライトを適用
+    if (!extensionContext) {
+      console.error('[Panel] Extension context not available for keyword highlighting');
+      return;
+    }
+    const { UIDecorations } = await import('./ui-decorations');
+    const uiDecorations = UIDecorations.getInstance(extensionContext);
+    await uiDecorations.applyKeywordHighlights(editor, result.keywords);
+  } catch (error) {
+    console.error('[Panel] Failed to apply keyword highlights:', error);
+  }
+}
+
+/**
+ * キーワードハイライトをクリア
+ * @param editor エディタ
+ */
+async function clearKeywordHighlights(editor: vscode.TextEditor): Promise<void> {
+  try {
+    // UI装飾システムからキーワードハイライトを削除
+    if (!extensionContext) {
+      console.error('[Panel] Extension context not available for clearing keyword highlights');
+      return;
+    }
+    const { UIDecorations } = await import('./ui-decorations');
+    const uiDecorations = UIDecorations.getInstance(extensionContext);
+    await uiDecorations.clearKeywordHighlights(editor);
+  } catch (error) {
+    console.error('[Panel] Failed to clear keyword highlights:', error);
   }
 }
 
@@ -298,6 +437,8 @@ function getWebviewContent(webview: vscode.Webview): string {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap; /* Prevent overlap on narrow widths */
+            gap: 8px 12px;
             margin-bottom: 16px;
             padding-bottom: 8px;
             border-bottom: 1px solid var(--vscode-panel-border);
@@ -306,6 +447,20 @@ function getWebviewContent(webview: vscode.Webview): string {
             font-size: 18px;
             font-weight: bold;
             color: var(--vscode-titleBar-activeForeground);
+            flex: 1 1 auto;
+            min-width: 120px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .actions {
+            display: flex;
+            flex: 0 1 auto;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            min-width: 220px;
         }
         .summary {
             background: var(--vscode-editor-inactiveSelectionBackground);
@@ -398,6 +553,26 @@ function getWebviewContent(webview: vscode.Webview): string {
         .button-secondary:hover {
             background: var(--vscode-button-secondaryHoverBackground);
         }
+        .toggle-button {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        .toggle-button.active {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+        .toggle-button:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .toggle-button.active:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
         .charts-section {
             margin-bottom: 20px;
             background: var(--vscode-editor-inactiveSelectionBackground);
@@ -443,7 +618,8 @@ function getWebviewContent(webview: vscode.Webview): string {
 <body>
     <div class="header">
         <div class="title">CriticalWritingJp</div>
-        <div>
+        <div class="actions">
+            <button class="toggle-button" id="keywordHighlightBtn">キーワードハイライト</button>
             <button class="button" id="refreshBtn">更新</button>
             <button class="button" id="settingsBtn">設定</button>
         </div>
@@ -455,12 +631,43 @@ function getWebviewContent(webview: vscode.Webview): string {
 
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+        let keywordHighlightEnabled = false; // Default OFF as required
         
         // Wire header buttons with CSP-safe listeners
         const refreshBtn = document.getElementById('refreshBtn');
         if (refreshBtn) { refreshBtn.addEventListener('click', () => vscode.postMessage({ type: 'refresh' })); }
         const settingsBtn = document.getElementById('settingsBtn');
         if (settingsBtn) { settingsBtn.addEventListener('click', () => vscode.postMessage({ type: 'openSettings' })); }
+        
+        // Keyword highlight toggle button
+        const keywordHighlightBtn = document.getElementById('keywordHighlightBtn');
+        if (keywordHighlightBtn) {
+            keywordHighlightBtn.addEventListener('click', () => {
+                keywordHighlightEnabled = !keywordHighlightEnabled;
+                updateKeywordHighlightButton();
+                vscode.postMessage({ 
+                    type: 'toggleKeywordHighlight', 
+                    enabled: keywordHighlightEnabled 
+                });
+            });
+        }
+        
+        // Update keyword highlight button appearance
+        function updateKeywordHighlightButton() {
+            const btn = document.getElementById('keywordHighlightBtn');
+            if (btn) {
+                if (keywordHighlightEnabled) {
+                    btn.classList.add('active');
+                    btn.textContent = 'キーワードハイライト: ON';
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = 'キーワードハイライト: OFF';
+                }
+            }
+        }
+        
+        // Initialize button state
+        updateKeywordHighlightButton();
         
         // Event delegation for paragraph click
         const contentEl = document.getElementById('content');
@@ -490,6 +697,7 @@ function getWebviewContent(webview: vscode.Webview): string {
             const { summary, rows, charts, characterAnalysis } = payload;
             
             content.innerHTML = \`
+                <div class="charts-title">段落分析</div>
                 <div class="summary">
                     <div class="summary-item">
                         <div class="summary-value">\${summary.totalParagraphs}</div>

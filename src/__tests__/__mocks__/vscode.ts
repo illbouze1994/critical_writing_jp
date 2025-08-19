@@ -26,6 +26,17 @@ export enum TextEditorRevealType {
   AtTop = 3
 }
 
+export enum DecorationRangeBehavior {
+  OpenOpen = 0,
+  ClosedOpen = 1,
+  OpenClosed = 2,
+  ClosedClosed = 3
+}
+
+export class ThemeColor {
+  constructor(public id: string) {}
+}
+
 export class Range {
   constructor(public start: Position, public end: Position) {}
 }

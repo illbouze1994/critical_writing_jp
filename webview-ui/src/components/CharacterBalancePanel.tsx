@@ -8,8 +8,8 @@ const CharacterBalancePanel = () => {
         文字種バランス
       </Text>
       {/* Chart will go here */}
-      <Div bg="gray200" h="150px" w="150px" m={{ t: "0.5rem" }} d="flex" align="center" justify="center" style={{ flexShrink: 0 }}>
-        <Text>Chart (150x150px)</Text>
+      <Div bg="gray200" h="120px" w="120px" m={{ t: "0.5rem" }} d="flex" align="center" justify="center" style={{ flexShrink: 0 }}>
+        <Text>Chart (120x120px)</Text>
       </Div>
     </Div>
   );
