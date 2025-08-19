@@ -28,7 +28,7 @@ export class Settings {
    */
   get keyword() {
     return {
-      mode: this._config.get<'rules' | 'tfidf' | 'embed'>('keyword.mode', 'rules')
+      mode: 'flashtext' as const
     };
   }
 

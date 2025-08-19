@@ -67,7 +67,7 @@ export class UIDecorations {
   private statusBarItems = new Map<string, vscode.StatusBarItem>();
   
   // 現在の装飾状態
-  private currentDecorations = new Map<string, vscode.Range[]>();
+  private currentDecorations = new Map<string, DecorationStyle[]>();
 
   private constructor(private context: vscode.ExtensionContext) {
     this.initializeDecorationTypes();
@@ -122,7 +122,7 @@ export class UIDecorations {
 
     // 正常段落の装飾（軽微な境界線のみ）
     this.decorationTypes.set(DecorationStyle.Normal, vscode.window.createTextEditorDecorationType({
-      borderLeft: '2px solid',
+      border: '2px solid',
       borderColor: new vscode.ThemeColor('editorInfo.foreground'),
       opacity: '0.3'
     }));
@@ -139,7 +139,7 @@ export class UIDecorations {
 
     // 引用段落の装飾
     this.decorationTypes.set(DecorationStyle.Quote, vscode.window.createTextEditorDecorationType({
-      borderLeft: '4px solid',
+      border: '4px solid',
       borderColor: new vscode.ThemeColor('textBlockQuote.border'),
       backgroundColor: new vscode.ThemeColor('textBlockQuote.background'),
       after: {

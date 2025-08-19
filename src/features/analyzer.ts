@@ -68,15 +68,14 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // 設定を取得
     const config = vscode.workspace.getConfiguration('criticalWritingJp');
-    const keywordMode = config.get<'rules' | 'tfidf' | 'embed' | 'flashtext'>('keyword.mode', 'rules');
     const roiWeights = config.get('roi.weights', { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 });
     
     // キーワード抽出（キーワードハイライトが有効な場合のみ）
     let keywords = new Map();
     const { isKeywordHighlightEnabled } = await import('./panel');
     if (isKeywordHighlightEnabled()) {
-      console.log(`[Analyzer] Extracting keywords (mode: ${keywordMode})`);
-      keywords = await keywordEngine.extractKeywords(paragraphs, keywordMode);
+      console.log(`[Analyzer] Extracting keywords (mode: flashtext)`);
+      keywords = await keywordEngine.extractKeywords(paragraphs);
     } else {
       console.log(`[Analyzer] Keyword extraction disabled - toggle is OFF`);
     }
@@ -760,23 +759,6 @@ export async function initializeAnalyzer(
       console.log('[Analyzer] Citation checker initialized');
     } catch (error) {
       console.warn('[Analyzer] Failed to initialize citation checker:', error);
-    }
-
-    // キーワードエンジンの事前初期化（非同期、エラーは無視）
-    try {
-      // キーワードエンジンの初期化を試行（失敗しても継続）
-      setTimeout(async () => {
-        try {
-          const { keywordEngine } = await import('./keyword-engine');
-          // 空の段落で初期化テスト
-          await keywordEngine.extractKeywords([], 'rules');
-          console.log('[Analyzer] Keyword engine pre-initialized');
-        } catch (error) {
-          console.warn('[Analyzer] Keyword engine pre-initialization failed:', error);
-        }
-      }, 1000);
-    } catch (error) {
-      console.warn('[Analyzer] Failed to start keyword engine initialization:', error);
     }
 
     console.log('[Analyzer] Initialized with diagnostic collection');

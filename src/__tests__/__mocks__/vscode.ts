@@ -33,6 +33,13 @@ export enum DecorationRangeBehavior {
   ClosedClosed = 3
 }
 
+export const OverviewRulerLane = {
+  Left: 1,
+  Center: 2,
+  Right: 4,
+  Full: 7,
+};
+
 export class ThemeColor {
   constructor(public id: string) {}
 }
@@ -53,6 +60,10 @@ export class Selection extends Range {
 
 export class Uri {
   static file(path: string): Uri {
+    return new Uri(path);
+  }
+
+  static parse(path: string): Uri {
     return new Uri(path);
   }
   
@@ -82,7 +93,10 @@ export const workspace = {
       return config[key] ?? defaultValue;
     }),
     update: jest.fn()
-  })
+  }),
+  openTextDocument: jest.fn().mockImplementation((uri) => {
+    return Promise.resolve(new MockTextDocument(`content for ${uri.toString()}`));
+  }),
 };
 
 export const window = {

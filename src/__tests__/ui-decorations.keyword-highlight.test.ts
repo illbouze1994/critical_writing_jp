@@ -19,28 +19,7 @@ const mockEditor = {
   setDecorations: jest.fn(),
 };
 
-const mockRange = jest.fn();
-const mockPosition = jest.fn();
-
-jest.mock('vscode', () => ({
-  window: {
-    createTextEditorDecorationType: jest.fn(() => mockTextEditorDecorationType),
-    createStatusBarItem: jest.fn(() => ({
-      dispose: jest.fn(),
-      show: jest.fn(),
-      hide: jest.fn(),
-    })),
-  },
-  StatusBarAlignment: {
-    Right: 2,
-  },
-  OverviewRulerLane: {
-    Right: 7,
-    Center: 4,
-  },
-  ThemeColor: jest.fn(),
-  Range: mockRange,
-}));
+// The vscode module is auto-mocked by Jest via the __mocks__ directory
 
 // Mock Settings
 jest.mock('../platform/settings', () => ({
@@ -55,6 +34,16 @@ describe('UIDecorations Keyword Highlighting', () => {
   let uiDecorations: UIDecorations;
   let mockContext: any;
 
+  beforeAll(() => {
+    // Manually mock the enum that's causing issues
+    (vscode as any).OverviewRulerLane = {
+      Center: 2,
+      Full: 7,
+      Left: 1,
+      Right: 4,
+    };
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     
@@ -66,8 +55,7 @@ describe('UIDecorations Keyword Highlighting', () => {
     mockEditor.document.getText.mockReturnValue('test document content with keyword1 and keyword2');
     mockEditor.document.positionAt.mockImplementation((offset: number) => ({ line: 0, character: offset }));
     mockEditor.setDecorations.mockClear();
-    
-    mockRange.mockImplementation((start, end) => ({ start, end }));
+    (vscode.window.createTextEditorDecorationType as jest.Mock).mockReturnValue(mockTextEditorDecorationType);
     
     // Create fresh instance
     uiDecorations = UIDecorations.getInstance(mockContext);
