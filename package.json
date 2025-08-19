@@ -2,7 +2,7 @@
   "name": "critical-writing-jp",
   "displayName": "CriticalWritingJp",
   "description": "学術・批評文章の執筆支援拡張機能",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "publisher": "illbouze",
   "private": true,
   "repository": {
