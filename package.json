@@ -41,6 +41,14 @@
     "onCommand:criticalWritingJp.fixStyleIssues"
   ],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/**",
+    "webview-assets/**",
+    "scripts/**",
+    "README*",
+    "LICENSE*",
+    "package.json"
+  ],
   "contributes": {
     "commands": [
       {
@@ -84,15 +92,6 @@
           "default": 800,
           "description": "段落の最大文字数しきい値",
           "order": 2
-        },
-        "criticalWritingJp.keyword.mode": {
-          "type": "string",
-          "enum": [
-            "flashtext"
-          ],
-          "default": "flashtext",
-          "description": "キーワード抽出モード (flashtextに固定)",
-          "order": 10
         },
         "criticalWritingJp.roi.weights": {
           "type": "object",

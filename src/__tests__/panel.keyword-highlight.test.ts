@@ -88,7 +88,7 @@ describe('Panel Keyword Highlighting', () => {
     expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('キーワードハイライトの切り替えに失敗しました');
   });
 
-  it('should be enabled by default', () => {
-    expect(isKeywordHighlightEnabled()).toBe(true);
+  it('should be disabled by default', () => {
+    expect(isKeywordHighlightEnabled()).toBe(false);
   });
 });

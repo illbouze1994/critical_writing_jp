@@ -4,7 +4,7 @@ import { getCachedAnalysisResult, getLastAnalyzedUri, runAnalysis, runAnalysisFo
 import { TextAnalyzer } from '../core/text-analyzer';
 
 let currentPanel: vscode.WebviewPanel | undefined;
-let keywordHighlightEnabled = true; // キーワードハイライト機能の状態（デフォルトはON）
+let keywordHighlightEnabled = false; // キーワードハイライト機能の状態（デフォルトはOFF）
 let extensionContext: vscode.ExtensionContext | undefined;
 
 /**
@@ -108,18 +108,40 @@ async function updatePanelContent(): Promise<void> {
     return;
   }
 
-  const result = getCachedAnalysisResult(targetUri);
+  let result = getCachedAnalysisResult(targetUri);
   if (!result || !Array.isArray((result as any).paragraphs)) {
+    // Proactively run analysis if possible, then retry once
     try {
-      currentPanel.webview.postMessage({
-        type: 'update',
-        payload: {
-          hasContent: false,
-          message: '解析中...'
+      const active = vscode.window.activeTextEditor;
+      if (active && (active.document.languageId === 'markdown' || active.document.languageId === 'plaintext')) {
+        await runAnalysis(active.document);
+      } else {
+        // Try visible editor
+        const visibleMd = vscode.window.visibleTextEditors.find(e => e.document.languageId === 'markdown' || e.document.languageId === 'plaintext');
+        if (visibleMd) {
+          await runAnalysis(visibleMd.document);
+        } else if (targetUri) {
+          await runAnalysisForUri(targetUri);
         }
-      });
-    } catch {}
-    return;
+      }
+    } catch (e) {
+      console.warn('[Panel] Background analysis trigger failed:', e);
+    }
+
+    // Retry fetching
+    result = getCachedAnalysisResult(targetUri);
+    if (!result || !Array.isArray((result as any).paragraphs)) {
+      try {
+        currentPanel.webview.postMessage({
+          type: 'update',
+          payload: {
+            hasContent: false,
+            message: '解析中...'
+          }
+        });
+      } catch {}
+      return;
+    }
   }
 
   // 解析結果をWebviewに送信
@@ -153,21 +175,67 @@ function createPanelPayload(result: AnalysisResult) {
   const config = vscode.workspace.getConfiguration('criticalWritingJp');
   const minThreshold = config.get<number>('counting.threshold.min', 200);
   const maxThreshold = config.get<number>('counting.threshold.max', 800);
+  const previewLen = config.get<number>('ui.preview.headChars', 40);
   
   const overCount = result.paragraphs.filter(p => p.chars > maxThreshold).length;
   const underCount = result.paragraphs.filter(p => p.chars < minThreshold).length;
 
-  // Create data for ParagraphDashboard
-  const paragraphs = result.paragraphs.map(p => {
-    const { charBalance, kanjiUsage } = TextAnalyzer.getRechartsDataForParagraph(p.text);
+  // Rows for the paragraph list expected by the webview script
+  const rows = result.paragraphs.map(p => {
+    const preview = (p.text || '').replace(/\s+/g, ' ').slice(0, Math.max(0, previewLen));
+    const status = p.chars > maxThreshold ? 'over' : (p.chars < minThreshold ? 'under' : 'normal');
     return {
       id: p.id,
-      content: p.text,
-      charCount: p.chars,
-      charBalance,
-      kanjiUsage
+      range: { start: p.range.start, end: p.range.end },
+      preview,
+      chars: p.chars,
+      type: p.type,
+      status
     };
   });
+
+  // Compute character category counts across all paragraphs
+  let hira = 0, kata = 0, kanji = 0, latin = 0, digit = 0, other = 0;
+  for (const p of result.paragraphs) {
+    const text = p.text || '';
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (/\s/.test(ch)) continue;
+      if (/[\u3041-\u3096]/.test(ch)) { hira++; continue; }
+      if (/[\u30A1-\u30FA\u30FC]/.test(ch)) { kata++; continue; }
+      if (/[\u4E00-\u9FFF]/.test(ch)) { kanji++; continue; }
+      if (/[A-Za-z]/.test(ch)) { latin++; continue; }
+      if (/[0-9]/.test(ch)) { digit++; continue; }
+      other++;
+    }
+  }
+  const countedTotal = hira + kata + kanji + latin + digit + other;
+
+  // Build Chart.js v1 pie datasets
+  const characterBalance = [
+    { value: hira,  color: '#66BB6A', highlight: '#81C784', label: 'ひらがな' },
+    { value: kata,  color: '#42A5F5', highlight: '#64B5F6', label: 'カタカナ' },
+    { value: kanji, color: '#EF5350', highlight: '#E57373', label: '漢字' },
+    { value: latin, color: '#AB47BC', highlight: '#BA68C8', label: '英字' },
+    { value: digit, color: '#FFA726', highlight: '#FFB74D', label: '数字' },
+    { value: other, color: '#BDBDBD', highlight: '#E0E0E0', label: 'その他' }
+  ];
+
+  const nonKanji = Math.max(0, countedTotal - kanji);
+  const joyoPie = [
+    { value: kanji, color: '#29B6F6', highlight: '#4FC3F7', label: '漢字' },
+    { value: nonKanji, color: '#90A4AE', highlight: '#B0BEC5', label: 'その他' }
+  ];
+
+  const characterAnalysis = {
+    totalChars: totalChars,
+    joyoKanjiUsage: countedTotal > 0 ? kanji / countedTotal : 0
+  };
+
+  const charts: Record<string, any> = {
+    characterBalance,
+    joyoKanjiUsage: joyoPie
+  };
 
   return {
     hasContent: true,
@@ -176,8 +244,11 @@ function createPanelPayload(result: AnalysisResult) {
       totalChars,
       overCount,
       underCount,
+      thresholds: { min: minThreshold, max: maxThreshold }
     },
-    paragraphs, // This is the new data for the dashboard
+    rows,
+    charts,
+    characterAnalysis,
     timestamp: result.timestamp
   };
 }
@@ -263,7 +334,11 @@ async function toggleKeywordHighlight(enabled: boolean): Promise<void> {
     // 再解析後にキーワードハイライトを適用
     await applyKeywordHighlights(editor);
   } else {
-    // キーワードハイライトを無効にする（ハイライトを削除）
+    // キーワードハイライトを無効にする
+    // 再解析を実行してAnalyzer側のキーワード装飾を空に更新（setDecorations([], ...)でクリア）
+    const { runAnalysis } = await import('./analyzer');
+    await runAnalysis(editor.document);
+    // UI装飾側のキーワードハイライトを削除
     await clearKeywordHighlights(editor);
   }
 }
@@ -392,7 +467,7 @@ function getWebviewContent(webview: vscode.Webview): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; img-src ${webview.cspSource} data:;">
     <title>CriticalWritingJp</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" nonce="${nonce}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@1.0.0/Chart.min.js" nonce="${nonce}"></script>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -484,6 +559,25 @@ function getWebviewContent(webview: vscode.Webview): string {
             flex-direction: column;
             align-items: flex-end;
             min-width: 80px;
+        }
+        .paragraph-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-right: 12px;
+        }
+        .btn-icon {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .btn-icon:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
         }
         .paragraph-chars {
             font-weight: bold;
@@ -642,15 +736,59 @@ function getWebviewContent(webview: vscode.Webview): string {
         // Event delegation for paragraph click
         const contentEl = document.getElementById('content');
         if (contentEl) {
-            contentEl.addEventListener('click', (ev) => {
-                const target = ev.target;
-                const item = target && target.closest ? target.closest('.paragraph-item') : null;
-                if (item) {
-                    const id = item.getAttribute('data-id');
-                    const start = Number(item.getAttribute('data-range-start'));
-                    const end = Number(item.getAttribute('data-range-end'));
+            contentEl.addEventListener('click', function (ev) {
+                var target = ev.target || null;
+                // Handle reorder buttons first
+                if (target && target.classList) {
+                    if (target.classList.contains('btn-move-up') || target.classList.contains('btn-move-down')) {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        // find nearest .paragraph-item
+                        var item = target.closest ? target.closest('.paragraph-item') : (function () {
+                            var el = target;
+                            while (el && !(el.classList && el.classList.contains('paragraph-item'))) {
+                                el = el.parentElement;
+                            }
+                            return el || null;
+                        })();
+                        if (!item) return;
+                        var list = item.parentElement; // .paragraph-list
+                        if (!list) return;
+                        if (target.classList.contains('btn-move-up')) {
+                            var prev = item.previousElementSibling;
+                            if (prev) {
+                                list.insertBefore(item, prev);
+                            }
+                        } else {
+                            var next = item.nextElementSibling;
+                            if (next) {
+                                list.insertBefore(next, item);
+                            }
+                        }
+                        // Collect new order of IDs and send to extension
+                        var ids = Array.from(list.querySelectorAll('.paragraph-item'))
+                            .map(function (el) { return el.getAttribute('data-id') || ''; })
+                            .filter(function (x) { return !!x; });
+                        if (ids.length > 0) {
+                            vscode.postMessage({ type: 'reorderParagraphs', payload: ids });
+                        }
+                        return;
+                    }
+                }
+                // Default: jump to paragraph when clicking the row
+                var item2 = (function () {
+                    var el = target;
+                    while (el && !(el.classList && el.classList.contains('paragraph-item'))) {
+                        el = el.parentElement;
+                    }
+                    return el || null;
+                })();
+                if (item2) {
+                    var id = item2.getAttribute('data-id');
+                    var start = Number(item2.getAttribute('data-range-start'));
+                    var end = Number(item2.getAttribute('data-range-end'));
                     if (id != null && !Number.isNaN(start) && !Number.isNaN(end)) {
-                        vscode.postMessage({ type: 'jumpToParagraph', paragraphId: id, range: { start, end } });
+                        vscode.postMessage({ type: 'jumpToParagraph', paragraphId: id, range: { start: start, end: end } });
                     }
                 }
             });
@@ -709,7 +847,7 @@ function getWebviewContent(webview: vscode.Webview): string {
                 </div>
                 <div class="paragraph-list">
                     \${rows.map((row, index) => \`
-                        <div class=\"paragraph-item\" data-id=\"\${row.id}\" data-range-start=\"\${row.range.start}\" data-range-end=\"\${row.range.end}\">\n                            <div class=\"paragraph-preview\">\${row.preview}</div>\n                            <div class=\"paragraph-meta\">\n                                <div class=\"paragraph-chars status-\${row.status}\">\${row.chars}文字</div>\n                                <div class=\"paragraph-type\">\${row.type}</div>\n                            </div>\n                        </div>
+                        <div class=\"paragraph-item\" data-id=\"\${row.id}\" data-range-start=\"\${row.range.start}\" data-range-end=\"\${row.range.end}\">\n                            <div class=\"paragraph-preview\">\${row.preview}</div>\n                            <div class=\"paragraph-controls\">\n                                <button class=\"btn-icon btn-move-up\" title=\"上へ\">↑</button>\n                                <button class=\"btn-icon btn-move-down\" title=\"下へ\">↓</button>\n                            </div>\n                            <div class=\"paragraph-meta\">\n                                <div class=\"paragraph-chars status-\${row.status}\">\${row.chars}文字</div>\n                                <div class=\"paragraph-type\">\${row.type}</div>\n                            </div>\n                        </div>
                     \`).join('')}
                 </div>
             \`;
@@ -719,6 +857,11 @@ function getWebviewContent(webview: vscode.Webview): string {
                 const styles = getComputedStyle(document.documentElement);
                 const legendColor = (styles.getPropertyValue('--vscode-foreground') || '').trim() || '#cccccc';
                 const borderColor = (styles.getPropertyValue('--vscode-panel-border') || '').trim() || '#444444';
+                try {
+                    if (typeof Chart === 'undefined' || !charts) {
+                        return;
+                    }
+                } catch (e) { return; }
                 drawCharts(charts, { legendColor, borderColor });
             }, 100);
         }
@@ -737,81 +880,35 @@ function getWebviewContent(webview: vscode.Webview): string {
             // 文字種バランス円グラフ
             const balanceCtx = document.getElementById('characterBalanceChart');
             if (balanceCtx && charts.characterBalance) {
-                window.characterBalanceChart = new Chart(balanceCtx, {
-                    type: 'pie',
-                    data: charts.characterBalance,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: theme.legendColor,
-                                    font: {
-                                        size: 11
-                                    },
-                                    padding: 10
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                        return \`\${context.label}: \${context.parsed}文字 (\${percentage}%)\`;
-                                    }
-                                }
-                            }
-                        },
-                        elements: {
-                            arc: {
-                                borderWidth: 1,
-                                borderColor: theme.borderColor
-                            }
-                        }
+                try {
+                    var ctx1 = balanceCtx.getContext && balanceCtx.getContext('2d');
+                    if (ctx1) {
+                        window.characterBalanceChart = new Chart(ctx1).Pie(charts.characterBalance, {
+                            segmentStrokeColor: theme.borderColor || '#444444',
+                            segmentStrokeWidth: 1,
+                            animationEasing: 'easeOutQuart',
+                            responsive: true,
+                            maintainAspectRatio: true
+                        });
                     }
-                });
+                } catch (e) {}
             }
             
             // 常用漢字使用率円グラフ
             const joyoCtx = document.getElementById('joyoKanjiChart');
             if (joyoCtx && charts.joyoKanjiUsage) {
-                window.joyoKanjiChart = new Chart(joyoCtx, {
-                    type: 'pie',
-                    data: charts.joyoKanjiUsage,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: theme.legendColor,
-                                    font: {
-                                        size: 11
-                                    },
-                                    padding: 10
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                                        return \`\${context.label}: \${context.parsed}文字 (\${percentage}%)\`;
-                                    }
-                                }
-                            }
-                        },
-                        elements: {
-                            arc: {
-                                borderWidth: 1,
-                                borderColor: theme.borderColor
-                            }
-                        }
+                try {
+                    var ctx2 = joyoCtx.getContext && joyoCtx.getContext('2d');
+                    if (ctx2) {
+                        window.joyoKanjiChart = new Chart(ctx2).Pie(charts.joyoKanjiUsage, {
+                            segmentStrokeColor: theme.borderColor || '#444444',
+                            segmentStrokeWidth: 1,
+                            animationEasing: 'easeOutQuart',
+                            responsive: true,
+                            maintainAspectRatio: true
+                        });
                     }
-                });
+                } catch (e) {}
             }
         }
         
@@ -889,39 +986,63 @@ async function reorderParagraphs(newOrderParagraphIds: string[]): Promise<void> 
 
   const originalParagraphs = cachedResult.paragraphs;
 
-  // IDから段落のテキストを取得するためのマップを作成
-  const paragraphTextMap = new Map(originalParagraphs.map(p => [p.id, p.text]));
-
-  const edit = new vscode.WorkspaceEdit();
-
   if (originalParagraphs.length !== newOrderParagraphIds.length) {
     vscode.window.showErrorMessage('段落数が一致しないため、並べ替えを中止しました。');
     return;
   }
 
-  // 元の各段落の位置に、新しい順序に基づいたテキストを配置する
-  for (let i = 0; i < originalParagraphs.length; i++) {
-    const originalParagraph = originalParagraphs[i];
-    const newParagraphId = newOrderParagraphIds[i];
-    const newText = paragraphTextMap.get(newParagraphId);
-
-    if (newText === undefined) {
-      vscode.window.showErrorMessage(`ID '${newParagraphId}' の段落が見つかりませんでした。並べ替えを中止します。`);
+  // 元の段落IDの集合で検証
+  const originalIds = new Set(originalParagraphs.map(p => p.id));
+  for (const id of newOrderParagraphIds) {
+    if (!originalIds.has(id)) {
+      vscode.window.showErrorMessage(`ID '${id}' の段落が見つかりませんでした。並べ替えを中止します。`);
       return;
     }
-
-    const startPos = document.positionAt(originalParagraph.range.start);
-    const endPos = document.positionAt(originalParagraph.range.end);
-    const range = new vscode.Range(startPos, endPos);
-
-    edit.replace(document.uri, range, newText);
   }
+
+  // 各段落の末尾セパレータを抽出（次の段落開始まで）
+  const pieces: string[] = [];
+  const fullText = document.getText();
+  const idToPara = new Map(originalParagraphs.map(p => [p.id, p]));
+
+  const getSeparator = (idx: number): string => {
+    const isLast = idx === originalParagraphs.length - 1;
+    if (isLast) {
+      // ドキュメント末尾のテキスト（末尾空白含む）
+      const endOffset = originalParagraphs[idx].range.end;
+      return fullText.slice(endOffset);
+    }
+    const endOffset = originalParagraphs[idx].range.end;
+    const nextStart = originalParagraphs[idx + 1].range.start;
+    return fullText.slice(endOffset, nextStart);
+  };
+
+  // 段落ID -> セパレータのマップ（元の配置に基づく）
+  const sepMap = new Map<string, string>();
+  for (let i = 0; i < originalParagraphs.length; i++) {
+    sepMap.set(originalParagraphs[i].id, getSeparator(i));
+  }
+
+  for (let i = 0; i < newOrderParagraphIds.length; i++) {
+    const id = newOrderParagraphIds[i];
+    const p = idToPara.get(id)!;
+    const text = p.text || '';
+    const sep = sepMap.get(id) ?? '\n\n';
+    pieces.push(text + sep);
+  }
+
+  const newContent = pieces.join('');
+
+  const edit = new vscode.WorkspaceEdit();
+  const fullStart = document.positionAt(0);
+  const fullEnd = document.positionAt(fullText.length);
+  const fullRange = new vscode.Range(fullStart, fullEnd);
+  edit.replace(document.uri, fullRange, newContent);
 
   try {
     const success = await vscode.workspace.applyEdit(edit);
     if (success) {
       vscode.window.setStatusBarMessage('段落を並べ替えました。', 3000);
-      // 並べ替え後に再解析を実行して、UIを最新の状態に更新する
       await runAnalysis(document);
       await updatePanel();
     } else {
