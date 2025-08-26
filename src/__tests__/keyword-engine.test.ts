@@ -1,24 +1,17 @@
-// This mock needs to be at the top, before any imports
-const mockExtractWithFlashText = jest.fn();
-jest.doMock('../features/flashtext-bridge', () => ({
-  __esModule: true,
-  extractWithFlashText: mockExtractWithFlashText,
-}));
-
+import { keywordEngine } from '../features/keyword-engine';
+import { extractWithFlashText } from '../features/flashtext-bridge';
 import { Paragraph, ParagraphType, Keyword } from '../core/types';
 
+jest.mock('../features/flashtext-bridge');
+
 describe('KeywordEngine', () => {
+  const mockExtractWithFlashText = extractWithFlashText as jest.Mock;
 
   beforeEach(() => {
-    // Reset modules and mocks before each test to ensure the mock is applied correctly
-    jest.resetModules();
     mockExtractWithFlashText.mockClear();
   });
 
   it('should call extractWithFlashText with paragraphs', async () => {
-    // Import the engine inside the test to get the mocked version
-    const { keywordEngine } = require('../features/keyword-engine');
-
     const paragraphs: Paragraph[] = [
       {
         id: 'test1',
@@ -42,7 +35,6 @@ describe('KeywordEngine', () => {
   });
 
   it('should handle empty paragraphs array', async () => {
-    const { keywordEngine } = require('../features/keyword-engine');
     const paragraphs: Paragraph[] = [];
     mockExtractWithFlashText.mockResolvedValue(new Map());
 
@@ -53,7 +45,6 @@ describe('KeywordEngine', () => {
   });
 
   it('should return an empty map if the bridge throws an error', async () => {
-    const { keywordEngine } = require('../features/keyword-engine');
     const paragraphs: Paragraph[] = [{
       id: 'test1',
       range: { start: 0, end: 10 },
