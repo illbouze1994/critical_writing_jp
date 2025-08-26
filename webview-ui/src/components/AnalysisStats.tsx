@@ -46,6 +46,25 @@ const AnalysisStats: React.FC<AnalysisStatsProps> = ({
             </div>
         </div>
     </div>
+    <>
+      <div className="page-header">
+        <h1 className="page-title">段落分析</h1>
+      </div>
+      <div className="row row-cards">
+        <div className="col-sm-6 col-lg-3">
+          <StatCard value={paragraphCount} label="総段落数" />
+        </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatCard value={charCount} label="総文字数" />
+        </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatCard value={overLimitCount} label="文字数超過" isDanger={overLimitCount > 0} />
+        </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatCard value={underLimitCount} label="文字数不足" isWarning={underLimitCount > 0} />
+        </div>
+      </div>
+    </>
   );
 };
 

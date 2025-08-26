@@ -37,9 +37,9 @@ const CharacterBalanceChart: React.FC<CharacterBalanceChartProps> = ({ data }) =
           data={data}
           cx="50%"
           cy="50%"
-          labelLine={false}
-          innerRadius="60%"
-          outerRadius="80%"
+          labelLine={!isSmall}
+          innerRadius={isSmall ? 15 : 40}
+          outerRadius={isSmall ? 30 : 80}
           fill="#8884d8"
           dataKey="value"
           label={false}

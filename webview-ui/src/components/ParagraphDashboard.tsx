@@ -57,6 +57,16 @@ const SortableItem: React.FC<SortableItemProps> = (props) => {
 };
 
 type ParagraphDashboardProps = {
+        attributes={attributes}
+        listeners={listeners}
+      />
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <ParagraphCard paragraph={props.paragraph} />
+    </div>
+  );
+}
+
+interface ParagraphDashboardProps {
   paragraphs: ParagraphData[];
 };
 
@@ -88,6 +98,16 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
 
         const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setParagraphs((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
+
+        // Notify the extension about the reorder
         vscodeApi.postMessage({
           command: 'reorderParagraphs',
           payload: reorderedParagraphs.map(p => p.id),
@@ -97,6 +117,7 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
       });
     }
   };
+      }
 
   return (
     <DndContext

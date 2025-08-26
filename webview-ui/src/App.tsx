@@ -49,6 +49,9 @@ const App = () => {
                     <div className="row g-2 align-items-center">
                         <div className="col">
                             {/* Page title removed for cleaner section-based titles */}
+                            <h2 className="page-title">
+                                文書解析結果
+                            </h2>
                         </div>
                         <div className="col-auto ms-auto d-print-none">
                             <button onClick={handleToggleHighlight} className={`btn ${highlighting ? 'btn-primary' : 'btn-secondary'}`}>
