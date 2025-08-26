@@ -2,7 +2,7 @@
   "name": "critical-writing-jp",
   "displayName": "CriticalWritingJp",
   "description": "学術・批評文章の執筆支援拡張機能",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "publisher": "illbouze",
   "private": true,
   "repository": {
@@ -41,6 +41,14 @@
     "onCommand:criticalWritingJp.fixStyleIssues"
   ],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/**",
+    "webview-assets/**",
+    "scripts/**",
+    "README*",
+    "LICENSE*",
+    "package.json"
+  ],
   "contributes": {
     "commands": [
       {
@@ -84,15 +92,6 @@
           "default": 800,
           "description": "段落の最大文字数しきい値",
           "order": 2
-        },
-        "criticalWritingJp.keyword.mode": {
-          "type": "string",
-          "enum": [
-            "flashtext"
-          ],
-          "default": "flashtext",
-          "description": "キーワード抽出モード (flashtextに固定)",
-          "order": 10
         },
         "criticalWritingJp.roi.weights": {
           "type": "object",
@@ -281,5 +280,10 @@
     "recharts": "^3.1.2",
     "textlint-rule-ja-joyo-or-jinmeiyo-kanji": "^1.0.3",
     "textlint-rule-preset-jtf-style": "^3.0.2"
+  },
+  "overrides": {
+    "test-exclude": {
+      "glob": "^10.4.5"
+    }
   }
 }

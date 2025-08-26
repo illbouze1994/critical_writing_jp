@@ -39,7 +39,22 @@ const webviewBuildOptions = {
   logLevel: 'info',
   jsx: 'transform',
   jsxFactory: 'React.createElement',
-  jsxFragment: 'React.Fragment'
+  jsxFragment: 'React.Fragment',
+
+  // アセットのローダー設定
+  loader: {
+    '.svg': 'dataurl',
+    '.eot': 'file',
+    '.ttf': 'file',
+    '.woff': 'file',
+    '.woff2': 'file',
+    '.png': 'file',
+    '.jpg': 'file',
+    '.gif': 'file',
+    '.webp': 'file'
+  },
+  // 出力されるアセットの配置（dist/assets/ 配下）
+  assetNames: 'assets/[name]-[hash]'
 };
 
 // distディレクトリが存在しない場合は作成
@@ -74,7 +89,6 @@ function copyAssets() {
       fs.cpSync(webviewAssetsSrc, webviewAssetsDest, { recursive: true });
       console.log('  - Webview assets copied to dist/webview-assets');
     } else {
-      // webview-assets はオプションではないので警告を出す
       console.warn('  - webview-assets directory not found, skipping copy.');
     }
 
@@ -98,7 +112,7 @@ async function buildAll() {
     // バンドルサイズ情報表示
     logBundleSize(extensionResult.metafile, 'dist/extension.js', 'Extension Host');
     logBundleSize(webviewResult.metafile, 'dist/webview.js', 'Webview UI');
-    
+
     // アセットをコピー
     copyAssets();
 
@@ -148,7 +162,7 @@ if (isWatch) {
   // Extension HostとWebview UIの両方をウォッチ
   build({ ...extensionBuildOptions, ...watchOptions, watch: true }).catch(() => process.exit(1));
   build({ ...webviewBuildOptions, ...watchOptions, watch: true }).catch(() => process.exit(1));
-  
+
   // アセットは初回のみコピー
   copyAssets();
 

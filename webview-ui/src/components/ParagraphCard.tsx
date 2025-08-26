@@ -39,6 +39,12 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, li
               <div className="col-12 d-flex justify-content-end mt-2">
                   <CharacterBalanceChart data={paragraph.charBalance} width={80} height={80} />
                   <KanjiUsageChart data={paragraph.kanjiUsage} width={80} height={80} />
+                <div style={{ width: '80px', height: '80px' }}>
+                  <CharacterBalanceChart data={paragraph.charBalance} />
+                </div>
+                <div style={{ width: '80px', height: '80px' }}>
+                  <KanjiUsageChart data={paragraph.kanjiUsage} />
+                </div>
               </div>
             </div>
           </div>
