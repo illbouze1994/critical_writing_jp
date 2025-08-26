@@ -10,7 +10,8 @@ const mockPanel: any = {
     html: '',
     postMessage: jest.fn(),
     onDidReceiveMessage: jest.fn(),
-    cspSource: 'mock-csp'
+    cspSource: 'mock-csp',
+    asWebviewUri: jest.fn((uri) => uri),
   },
   onDidDispose: jest.fn(),
   onDidChangeViewState: jest.fn(),

@@ -7,6 +7,7 @@ const App = () => {
   const [highlighting, setHighlighting] = useState(true); // Assume ON by default
 
   const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : { postMessage: () => {} };
+  (window as any).vscode = vscode;
 
   const handleToggleHighlight = () => {
     const newState = !highlighting;

@@ -11,7 +11,8 @@ describe('Panel includes 段落分析 label', () => {
         html: '',
         postMessage: jest.fn(),
         onDidReceiveMessage: jest.fn(),
-        cspSource: 'vscode-resource:'
+        cspSource: 'vscode-resource:',
+        asWebviewUri: jest.fn((uri) => uri),
       },
       onDidDispose: jest.fn(),
       onDidChangeViewState: jest.fn(),

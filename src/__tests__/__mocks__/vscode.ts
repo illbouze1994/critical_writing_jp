@@ -105,7 +105,8 @@ export const window = {
       html: '',
       postMessage: jest.fn(),
       onDidReceiveMessage: jest.fn(),
-      cspSource: 'vscode-resource:'
+      cspSource: 'vscode-resource:',
+      asWebviewUri: jest.fn((uri: Uri) => uri),
     },
     onDidDispose: jest.fn(),
     reveal: jest.fn()

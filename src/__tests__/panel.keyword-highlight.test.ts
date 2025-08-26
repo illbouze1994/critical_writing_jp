@@ -1,7 +1,7 @@
 // Mocks must be at the top
 const mockRunAnalysis = jest.fn();
 const mockGetCachedAnalysisResult = jest.fn();
-jest.doMock('../features/analyzer', () => ({
+jest.mock('../features/analyzer', () => ({
   __esModule: true,
   runAnalysis: mockRunAnalysis,
   getCachedAnalysisResult: mockGetCachedAnalysisResult,
@@ -10,7 +10,7 @@ jest.doMock('../features/analyzer', () => ({
 
 const mockApplyKeywordHighlights = jest.fn();
 const mockClearKeywordHighlights = jest.fn();
-jest.doMock('../features/ui-decorations', () => ({
+jest.mock('../features/ui-decorations', () => ({
   __esModule: true,
   UIDecorations: {
     getInstance: jest.fn(() => ({

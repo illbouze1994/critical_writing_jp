@@ -21,9 +21,7 @@ import ParagraphCard, { ParagraphData } from './ParagraphCard';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 
-const vscodeApi = typeof acquireVsCodeApi === 'function'
-  ? acquireVsCodeApi()
-  : { postMessage: (message: any) => console.log('postMessage (mock)', message) };
+const vscodeApi = (window as any).vscode;
 
 type SortableItemProps = {
   id: string;

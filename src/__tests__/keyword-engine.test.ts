@@ -1,11 +1,9 @@
 import { keywordEngine } from '../features/keyword-engine';
-import { extractWithFlashText } from '../features/flashtext-bridge';
+import * as flashtextBridge from '../features/flashtext-bridge';
 import { Paragraph, ParagraphType, Keyword } from '../core/types';
 
-jest.mock('../features/flashtext-bridge');
-
 describe('KeywordEngine', () => {
-  const mockExtractWithFlashText = extractWithFlashText as jest.Mock;
+  const mockExtractWithFlashText = jest.spyOn(flashtextBridge, 'extractWithFlashText');
 
   beforeEach(() => {
     mockExtractWithFlashText.mockClear();
