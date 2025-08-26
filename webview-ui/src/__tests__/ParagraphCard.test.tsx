@@ -6,6 +6,10 @@ import ParagraphCard, { ParagraphData } from '../components/ParagraphCard';
 jest.mock('../components/CharacterBalanceChart', () => () => <div>CharacterBalanceChart</div>);
 jest.mock('../components/KanjiUsageChart', () => () => <div>KanjiUsageChart</div>);
 
+import React from 'react';
+import { render } from '@testing-library/react';
+import ParagraphCard, { ParagraphData } from '../components/ParagraphCard';
+
 describe('ParagraphCard', () => {
   it('renders correctly with given paragraph data', () => {
     const paragraph: ParagraphData = {

@@ -412,40 +412,44 @@ export class UIDecorations {
    * @param keywords キーワードマップ
    */
   async applyKeywordHighlights(editor: vscode.TextEditor, keywords: Map<string, any[]>): Promise<void> {
-    if (!editor || !keywords || keywords.size === 0) {
-      console.log('[UIDecorations] No keywords available for highlighting');
-      return;
-    }
+    try {
+      if (!editor || !keywords || keywords.size === 0) {
+        // console.log('[UIDecorations] No keywords available for highlighting');
+        return;
+      }
 
-    const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
-    if (!decorationType) {
-      console.error('[UIDecorations] Keyword decoration type not found');
-      return;
-    }
+      const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
+      if (!decorationType) {
+        console.error('[UIDecorations] Keyword decoration type not found');
+        return;
+      }
 
-    const ranges: vscode.Range[] = [];
-    const documentText = editor.document.getText();
+      const ranges: vscode.Range[] = [];
+      const documentText = editor.document.getText();
 
-    // 各段落のキーワードをハイライト
-    keywords.forEach((keywordList, paragraphId) => {
-      keywordList.forEach(keyword => {
-        const keywordText = keyword.text || keyword;
-        if (!keywordText) return;
+      // 各段落のキーワードをハイライト
+      keywords.forEach((keywordList, paragraphId) => {
+        keywordList.forEach(keyword => {
+          const keywordText = keyword.text || keyword;
+          if (!keywordText) return;
 
-        // キーワードのすべての出現箇所を検索
-        const regex = new RegExp(this.escapeRegex(keywordText), 'gi');
-        let match;
-        while ((match = regex.exec(documentText)) !== null) {
-          const startPos = editor.document.positionAt(match.index);
-          const endPos = editor.document.positionAt(match.index + keywordText.length);
-          ranges.push(new vscode.Range(startPos, endPos));
-        }
+          // キーワードのすべての出現箇所を検索
+          const regex = new RegExp(this.escapeRegex(keywordText), 'gi');
+          let match;
+          while ((match = regex.exec(documentText)) !== null) {
+            const startPos = editor.document.positionAt(match.index);
+            const endPos = editor.document.positionAt(match.index + keywordText.length);
+            ranges.push(new vscode.Range(startPos, endPos));
+          }
+        });
       });
-    });
 
-    // キーワードハイライトを適用
-    editor.setDecorations(decorationType, ranges);
-    console.log(`[UIDecorations] Applied keyword highlights: ${ranges.length} keywords`);
+      // キーワードハイライトを適用
+      editor.setDecorations(decorationType, ranges);
+      // console.log(`[UIDecorations] Applied keyword highlights: ${ranges.length} keywords`);
+    } catch (error) {
+      console.error('[UIDecorations] Error applying keyword highlights:', error);
+    }
   }
 
   /**
@@ -453,10 +457,17 @@ export class UIDecorations {
    * @param editor エディタ
    */
   async clearKeywordHighlights(editor: vscode.TextEditor): Promise<void> {
+    if (!editor) {
+      return;
+    }
     const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
     if (decorationType) {
-      editor.setDecorations(decorationType, []);
-      console.log('[UIDecorations] Cleared keyword highlights');
+      try {
+        editor.setDecorations(decorationType, []);
+        // console.log('[UIDecorations] Cleared keyword highlights');
+      } catch (error) {
+        console.error('[UIDecorations] Error clearing keyword highlights:', error);
+      }
     }
   }
 

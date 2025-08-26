@@ -18,124 +18,92 @@ exports[`AnalysisStats renders correctly with default props 1`] = `
       class="card-body"
     >
       <div
-        class="row row"
+        class="row row-cards"
       >
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                0
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 総段落数
               </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                0
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                0
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 総文字数
               </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                0
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                0
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 文字数超過
               </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                0
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                0
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 文字数不足
+              </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                0
               </div>
             </div>
           </div>
@@ -164,124 +132,92 @@ exports[`AnalysisStats renders correctly with given props 1`] = `
       class="card-body"
     >
       <div
-        class="row row"
+        class="row row-cards"
       >
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                10
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 総段落数
               </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                10
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-yellow text-right"
-              >
-                0%
-                <i
-                  class="fe fe-minus"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                2500
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 総文字数
               </div>
+              <div
+                class="fw-bold h2 mb-0  "
+              >
+                2500
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-green text-right"
-              >
-                +1%
-                <i
-                  class="fe fe-chevron-up"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                2
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 文字数超過
               </div>
+              <div
+                class="fw-bold h2 mb-0 text-red "
+              >
+                2
+              </div>
             </div>
           </div>
         </div>
         <div
-          class="col col-sm-6 col-lg-3"
+          class="col-sm-6 col-lg-3"
         >
           <div
             class="card"
           >
             <div
-              class="card-body p-3 text-center"
+              class="card-body p-2 text-center"
             >
               <div
-                class="text-red text-right"
-              >
-                -1%
-                <i
-                  class="fe fe-chevron-down"
-                />
-              </div>
-              <div
-                class="h1 m-0"
-              >
-                3
-              </div>
-              <div
-                class=" mb-4"
+                class="text-secondary mb-1"
               >
                 文字数不足
+              </div>
+              <div
+                class="fw-bold h2 mb-0  text-orange"
+              >
+                3
               </div>
             </div>
           </div>

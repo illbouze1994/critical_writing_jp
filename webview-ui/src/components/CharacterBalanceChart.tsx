@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 export interface CharBalanceData {
   name: 'ひらがな' | 'カタカナ' | '漢字' | '英数字' | 'その他';
@@ -8,7 +8,8 @@ export interface CharBalanceData {
 
 interface CharacterBalanceChartProps {
   data: CharBalanceData[];
-  height?: number;
+  width: number;
+  height: number;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#96CEB4'];
@@ -24,30 +25,31 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-const CharacterBalanceChart: React.FC<CharacterBalanceChartProps> = ({ data, height = 250 }) => {
-  const isSmall = height < 100;
+const CharacterBalanceChart: React.FC<CharacterBalanceChartProps> = ({ data, width, height }) => {
+  const totalValue = data.reduce((sum, entry) => sum + entry.value, 0);
+  if (totalValue === 0) {
+    return <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)' }}>-</div>;
+  }
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <PieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          labelLine={!isSmall}
-          outerRadius={isSmall ? 30 : 80}
-          fill="#8884d8"
-          dataKey="value"
-          // 小さい場合はラベルを非表示
-          label={isSmall ? undefined : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-        >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip />} />
-      </PieChart>
-    </ResponsiveContainer>
+    <PieChart width={width} height={height}>
+      <Pie
+        data={data}
+        cx="50%"
+        cy="50%"
+        labelLine={false}
+        innerRadius="50%"
+        outerRadius="90%"
+        fill="#8884d8"
+        dataKey="value"
+        label={false}
+      >
+        {data.map((entry, index) => (
+          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+        ))}
+      </Pie>
+      <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 1000 }} />
+    </PieChart>
   );
 };
 

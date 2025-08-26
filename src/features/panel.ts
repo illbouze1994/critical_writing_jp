@@ -37,13 +37,13 @@ export async function createOrShowPanel(context: vscode.ExtensionContext): Promi
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [
-        vscode.Uri.joinPath(context.extensionUri, 'webview')
+        vscode.Uri.joinPath(context.extensionUri, 'dist')
       ]
     }
   );
 
   // パネルのHTMLコンテンツを設定
-  currentPanel.webview.html = getWebviewContent(currentPanel.webview);
+  currentPanel.webview.html = getWebviewContent(currentPanel.webview, context.extensionUri);
 
   // 表示状態の変更で再描画（移動や表示時）
   currentPanel.onDidChangeViewState(() => {
@@ -381,19 +381,28 @@ async function jumpToParagraph(paragraphId: string, range: { start: number; end:
  * @param extensionUri 拡張機能のURI
  * @returns HTMLコンテンツ
  */
-function getWebviewContent(webview: vscode.Webview): string {
-  // CSPのnonce生成
+function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
   const nonce = getNonce();
+
+  // Get the paths to the required assets on disk
+  const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'dist', 'webview.js'));
+  const customStylesUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'dist', 'webview-assets', 'styles.css'));
 
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; img-src ${webview.cspSource} data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;">
     <title>CriticalWritingJp</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" nonce="${nonce}"></script>
-    <style>
+    <link href="${customStylesUri}" rel="stylesheet">
+</head>
+<body>
+    <div id="app"></div>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+}
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -873,14 +882,24 @@ export async function updatePanel(): Promise<void> {
  * @param newOrderParagraphIds 並べ替え後の段落IDの配列
  */
 async function reorderParagraphs(newOrderParagraphIds: string[]): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showWarningMessage('並べ替え操作を行うには、対象のファイルがアクティブである必要があります。');
+  const targetUri = getLastAnalyzedUri();
+  if (!targetUri) {
+    vscode.window.showWarningMessage('並べ替え対象のファイルが見つかりません。');
     return;
   }
 
-  const document = editor.document;
-  const cachedResult = getCachedAnalysisResult(document.uri.toString());
+  const documentUri = vscode.Uri.parse(targetUri);
+  const document = await vscode.workspace.openTextDocument(documentUri);
+  const editor = vscode.window.visibleTextEditors.find(
+    (e) => e.document.uri.toString() === targetUri
+  );
+
+  if (!document) {
+    vscode.window.showErrorMessage('ドキュメントを開けませんでした。');
+    return;
+  }
+
+  const cachedResult = getCachedAnalysisResult(targetUri);
 
   if (!cachedResult || !cachedResult.paragraphs) {
     vscode.window.showWarningMessage('並べ替えの基準となる解析データが見つかりません。');
