@@ -478,6 +478,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
 </body>
 </html>`;
 }
+/*
     <script src="https://cdn.jsdelivr.net/npm/chart.js@1.0.0/Chart.min.js" nonce="${nonce}"></script>
     <style>
         body {
@@ -493,7 +494,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap; /* Prevent overlap on narrow widths */
+            flex-wrap: wrap;
             gap: 8px 12px;
             margin-bottom: 16px;
             padding-bottom: 8px;
@@ -952,7 +953,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
     </script>
 </body>
 </html>`;
-}
+}*/
 
 /**
  * ランダムなnonce文字列を生成
@@ -984,19 +985,6 @@ async function reorderParagraphs(newOrderParagraphIds: string[]): Promise<void> 
   const targetUri = getLastAnalyzedUri();
   if (!targetUri) {
     vscode.window.showWarningMessage('並べ替え対象のファイルが見つかりません。');
-    return;
-  }
-
-  const documentUri = vscode.Uri.parse(targetUri);
-  const document = await vscode.workspace.openTextDocument(documentUri);
-  const editor = vscode.window.visibleTextEditors.find(
-    (e) => e.document.uri.toString() === targetUri
-  );
-
-  if (!document) {
-    vscode.window.showErrorMessage('ドキュメントを開けませんでした。');
-    return;
-  }
     return;
   }
 

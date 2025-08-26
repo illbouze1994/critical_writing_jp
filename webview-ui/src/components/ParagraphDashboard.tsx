@@ -38,7 +38,6 @@ const SortableItem: React.FC<SortableItemProps> = (props) => {
     transform,
     transition,
   } = useSortable({ id: props.id });
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: props.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -58,7 +57,6 @@ const SortableItem: React.FC<SortableItemProps> = (props) => {
 };
 
 type ParagraphDashboardProps = {
-interface ParagraphDashboardProps {
   paragraphs: ParagraphData[];
 };
 
@@ -90,11 +88,6 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
 
         const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
 
-        vscodeApi.postMessage({
-          command: 'reorderParagraphs',
-          payload: reorderedParagraphs.map(p => p.id),
-          
-        // Notify the extension about the reorder
         vscodeApi.postMessage({
           command: 'reorderParagraphs',
           payload: reorderedParagraphs.map((p) => p.id),
