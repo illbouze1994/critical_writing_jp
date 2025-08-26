@@ -50,6 +50,8 @@ function SortableItem(props: SortableItemProps) {
         attributes={attributes}
         listeners={listeners}
       />
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <ParagraphCard paragraph={props.paragraph} />
     </div>
   );
 }

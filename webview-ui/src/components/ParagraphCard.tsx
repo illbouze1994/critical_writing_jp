@@ -27,6 +27,9 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, li
           <div className="col-auto" style={{ cursor: 'grab' }} {...listeners}>
             <IconGripVertical size={24} className="text-secondary" />
           </div>
+    <div className="card" title={paragraph.content}>
+      <div className="card-body">
+        <div className="row align-items-center">
           <div className="col">
             <p className="text-secondary">{paragraph.content.substring(0, 120)}...</p>
           </div>
@@ -42,6 +45,10 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, li
                 </div>
                 <div style={{ width: '80px', height: '80px' }}>
                   <KanjiUsageChart data={paragraph.kanjiUsage} />
+                  <CharacterBalanceChart data={paragraph.charBalance} height={80} />
+                </div>
+                <div style={{ width: '80px', height: '80px' }}>
+                  <KanjiUsageChart data={paragraph.kanjiUsage} height={80} />
                 </div>
               </div>
             </div>

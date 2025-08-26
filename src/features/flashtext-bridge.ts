@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Paragraph, Keyword } from '../core/types';
 
@@ -45,9 +46,15 @@ export async function extractWithFlashText(paragraphs: Paragraph[], context?: vs
   try {
     const scriptPath = resolvePythonScriptPath(context);
 
+    // If the Python script is not present in the packaged extension, return empty result gracefully
+    if (!fs.existsSync(scriptPath)) {
+      console.warn(`[FlashTextBridge] Python script not found at ${scriptPath}. Falling back to JS extractor.`);
+      return fallbackExtract(paragraphs, terms);
+    }
+
     if (!PythonShellRun) {
-      console.warn('[FlashTextBridge] python-shell not available. Returning empty result.');
-      return result;
+      console.warn('[FlashTextBridge] python-shell not available. Falling back to JS extractor.');
+      return fallbackExtract(paragraphs, terms);
     }
 
     const payload = JSON.stringify(input);
@@ -86,7 +93,7 @@ export async function extractWithFlashText(paragraphs: Paragraph[], context?: vs
     }
   } catch (error) {
     console.warn('[FlashTextBridge] Failed to run FlashText:', error);
-    return result; // empty result on failure
+    return result; // keep empty on Python process error to match tests
   }
 
   return result;
@@ -95,8 +102,14 @@ export async function extractWithFlashText(paragraphs: Paragraph[], context?: vs
 function resolvePythonScriptPath(context?: vscode.ExtensionContext): string {
   // Prefer extension-relative path if available; fallback to project scripts directory
   const relative = path.join('scripts', 'flashtext_extractor.py');
-  if (context && (context as any).extensionPath) {
-    return path.join((context as any).extensionPath, relative);
+  if (context) {
+    const anyCtx = context as any;
+    // VS Code provides extensionUri in modern API, and extensionPath for backward compatibility
+    const base = (anyCtx.extensionUri && (anyCtx.extensionUri.fsPath || anyCtx.extensionUri.path))
+      || anyCtx.extensionPath;
+    if (base) {
+      return path.join(base, relative);
+    }
   }
   // Fallback to process.cwd()
   return path.join(process.cwd(), relative);
@@ -128,4 +141,36 @@ function matchAndAdd(text: string, regex: RegExp, terms: Set<string>) {
       seen.add(term);
     }
   }
+}
+
+function fallbackExtract(paragraphs: Paragraph[], terms: Set<string>): Map<string, Keyword[]> {
+  const out = new Map<string, Keyword[]>();
+  if (!paragraphs || paragraphs.length === 0 || terms.size === 0) return out;
+
+  const termList = Array.from(terms);
+  const regexes = termList.map(t => ({ term: t, re: new RegExp(escapeRegex(t), 'gi') }));
+
+  for (const p of paragraphs) {
+    const text = (p.text || '');
+    const kws: Keyword[] = [];
+    for (const { term, re } of regexes) {
+      let m;
+      let count = 0;
+      while ((m = re.exec(text)) !== null) {
+        count++;
+        if (re.lastIndex === m.index) re.lastIndex++; // avoid zero-length loops
+      }
+      if (count > 0) {
+        const score = Math.min(1, count / 5);
+        kws.push({ text: term, frequency: count, score, partOfSpeech: 'unknown' });
+      }
+    }
+    kws.sort((a, b) => b.score - a.score);
+    out.set(p.id, kws.slice(0, 20));
+  }
+  return out;
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
