@@ -1,11 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 import ParagraphCard, { ParagraphData } from './ParagraphCard';
 
-// VSCode APIのモック（ブラウザでのテスト用）
 const vscodeApi = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (message: any) => console.log('postMessage (mock)', message) };
+
+interface SortableItemProps {
+  id: string;
+  paragraph: ParagraphData;
+}
+
+function SortableItem(props: SortableItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: props.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    marginBottom: '1rem',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ParagraphCard
+        paragraph={props.paragraph}
+        attributes={attributes}
+        listeners={listeners}
+      />
+    </div>
+  );
+}
 
 interface ParagraphDashboardProps {
   paragraphs: ParagraphData[];
@@ -18,55 +65,50 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
     setParagraphs(initialParagraphs);
   }, [initialParagraphs]);
 
-  const onDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-    if (!destination) {
-      return;
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setParagraphs((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
+
+        // Notify the extension about the reorder
+        vscodeApi.postMessage({
+          command: 'reorderParagraphs',
+          payload: reorderedParagraphs.map(p => p.id),
+        });
+
+        return reorderedParagraphs;
+      });
     }
-
-    const reorderedParagraphs = Array.from(paragraphs);
-    const [removed] = reorderedParagraphs.splice(source.index, 1);
-    reorderedParagraphs.splice(destination.index, 0, removed);
-
-    setParagraphs(reorderedParagraphs);
-
-    // 拡張機能に段落の新しい順序を通知
-    vscodeApi.postMessage({
-      command: 'reorderParagraphs',
-      payload: reorderedParagraphs.map(p => p.id),
-    });
-  };
-
-  // TODO: useEffectで拡張機能からのデータを受け取り、paragraphsステートを更新するロジックを追加
+  }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Droppable droppableId="paragraphs">
-        {(provided) => (
-          <div {...provided.droppableProps} ref={provided.innerRef}>
-            {paragraphs.map((p, index) => (
-              <Draggable key={p.id} draggableId={p.id} index={index}>
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    style={{
-                      ...provided.draggableProps.style,
-                      marginBottom: '1rem',
-                    }}
-                  >
-                    <ParagraphCard paragraph={p} />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </DragDropContext>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={paragraphs.map(p => p.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div>
+          {paragraphs.map((p) => (
+            <SortableItem key={p.id} id={p.id} paragraph={p} />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 };
 
