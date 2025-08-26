@@ -4,52 +4,61 @@ exports[`ParagraphCard renders correctly with given paragraph data 1`] = `
 <DocumentFragment>
   <div
     class="card"
+    title="This is a test paragraph that is long enough to be truncated."
   >
     <div
       class="card-body"
     >
       <div
-        class="row row align-items-center"
+        class="row align-items-center"
       >
         <div
           class="col"
         >
-          <div
-            class="text-wrap p-lg-6"
+          <p
+            class="text-secondary"
           >
             This is a test paragraph that is long enough to be truncated....
-          </div>
+          </p>
         </div>
         <div
-          class="col"
+          class="col-auto"
         >
           <div
-            style="text-align: center;"
+            class="row align-items-center text-center"
           >
             <div
-              class="lg"
+              class="col-12"
             >
-              150
+              <div
+                class="h1 mb-0"
+              >
+                150
+              </div>
+              <div
+                class="text-secondary"
+              >
+                文字
+              </div>
             </div>
             <div
-              class="text-muted"
+              class="col-12 d-flex justify-content-end mt-2"
             >
-              文字
+              <div
+                style="width: 80px; height: 80px;"
+              >
+                <div>
+                  CharacterBalanceChart
+                </div>
+              </div>
+              <div
+                style="width: 80px; height: 80px;"
+              >
+                <div>
+                  KanjiUsageChart
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div
-          class="col"
-        >
-          <div>
-            CharacterBalanceChart
-          </div>
-        </div>
-        <div
-          class="col"
-        >
-          <div>
-            KanjiUsageChart
           </div>
         </div>
       </div>

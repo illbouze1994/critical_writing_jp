@@ -178,8 +178,12 @@ export class GoogleBooksClient {
       }
 
       if (errorMessage.includes('RATE')) {
-        // レート制限エラーの場合は指数バックオフで再試行
-        return this.retryWithBackoff(request, cancelInfo);
+        try {
+          // レート制限エラーの場合は指数バックオフで再試行
+          return await this.retryWithBackoff(request, cancelInfo);
+        } catch (retryError) {
+          throw new Error(`書籍検索に失敗しました: ${retryError instanceof Error ? retryError.message : String(retryError)}`);
+        }
       }
 
       if (cancelInfo?.signal.aborted) {
@@ -387,9 +391,9 @@ export class GoogleBooksClient {
   /**
    * スニペットのHTMLタグを除去
    */
-  private cleanSnippet(snippet?: string): string | undefined {
+  private cleanSnippet(snippet?: string): string {
     if (!snippet) {
-      return undefined;
+      return '';
     }
     return snippet.replace(/<[^>]*>/g, '');
   }
@@ -420,7 +424,7 @@ export class GoogleBooksClient {
    * リソースのクリーンアップ
    */
   dispose(): void {
-    this.cache.clear();
+    this.clearCache();
     this.isEnabled = false;
   }
 }
