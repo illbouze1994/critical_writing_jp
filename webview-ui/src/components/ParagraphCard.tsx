@@ -1,9 +1,10 @@
 import React from 'react';
-import { Card, Grid, Text } from 'tabler-react';
 import CharacterBalanceChart, { CharBalanceData } from './CharacterBalanceChart';
 import KanjiUsageChart, { KanjiUsageData } from './KanjiUsageChart';
+import { IconGripVertical } from '@tabler/icons-react';
+import { DraggableAttributes } from '@dnd-kit/core';
+import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 
-// 仮の段落データ構造
 export interface ParagraphData {
   id: string;
   content: string;
@@ -14,31 +15,40 @@ export interface ParagraphData {
 
 interface ParagraphCardProps {
   paragraph: ParagraphData;
+  attributes?: DraggableAttributes;
+  listeners?: SyntheticListenerMap;
 }
 
-const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph }) => {
+const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, listeners }) => {
   return (
-    <Card>
-      <Card.Body>
-        <Grid.Row alignItems="center">
-          <Grid.Col>
-            <Text wrap>{paragraph.content.substring(0, 100)}...</Text>
-          </Grid.Col>
-          <Grid.Col size="auto">
-            <div style={{ textAlign: 'center' }}>
-              <Text size="lg" strong>{paragraph.charCount}</Text>
-              <Text muted>文字</Text>
+    <div className="card" title={paragraph.content} {...attributes}>
+      <div className="card-body">
+        <div className="row align-items-center">
+          <div className="col-auto" style={{ cursor: 'grab' }} {...listeners}>
+            <IconGripVertical size={24} className="text-secondary" />
+          </div>
+          <div className="col">
+            <p className="text-secondary">{paragraph.content.substring(0, 120)}...</p>
+          </div>
+          <div className="col-auto">
+            <div className="row align-items-center text-center">
+              <div className="col-12">
+                <div className="h1 mb-0">{paragraph.charCount}</div>
+                <div className="text-secondary">文字</div>
+              </div>
+              <div className="col-12 d-flex justify-content-end mt-2">
+                <div style={{ width: '80px', height: '80px' }}>
+                  <CharacterBalanceChart data={paragraph.charBalance} />
+                </div>
+                <div style={{ width: '80px', height: '80px' }}>
+                  <KanjiUsageChart data={paragraph.kanjiUsage} />
+                </div>
+              </div>
             </div>
-          </Grid.Col>
-          <Grid.Col size="auto" style={{ width: '120px' }}>
-            <CharacterBalanceChart data={paragraph.charBalance} height={80} />
-          </Grid.Col>
-          <Grid.Col size="auto" style={{ width: '120px' }}>
-            <KanjiUsageChart data={paragraph.kanjiUsage} height={80} />
-          </Grid.Col>
-        </Grid.Row>
-      </Card.Body>
-    </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
