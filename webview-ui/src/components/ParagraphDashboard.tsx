@@ -44,6 +44,12 @@ function SortableItem(props: SortableItemProps) {
   };
 
   return (
+    <div ref={setNodeRef} style={style}>
+      <ParagraphCard
+        paragraph={props.paragraph}
+        attributes={attributes}
+        listeners={listeners}
+      />
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <ParagraphCard paragraph={props.paragraph} />
     </div>

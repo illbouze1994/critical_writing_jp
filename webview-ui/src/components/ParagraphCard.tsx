@@ -1,6 +1,9 @@
 import React from 'react';
 import CharacterBalanceChart, { CharBalanceData } from './CharacterBalanceChart';
 import KanjiUsageChart, { KanjiUsageData } from './KanjiUsageChart';
+import { IconGripVertical } from '@tabler/icons-react';
+import { DraggableAttributes } from '@dnd-kit/core';
+import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 
 export interface ParagraphData {
   id: string;
@@ -12,10 +15,18 @@ export interface ParagraphData {
 
 interface ParagraphCardProps {
   paragraph: ParagraphData;
+  attributes?: DraggableAttributes;
+  listeners?: SyntheticListenerMap;
 }
 
-const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph }) => {
+const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, listeners }) => {
   return (
+    <div className="card" title={paragraph.content} {...attributes}>
+      <div className="card-body">
+        <div className="row align-items-center">
+          <div className="col-auto" style={{ cursor: 'grab' }} {...listeners}>
+            <IconGripVertical size={24} className="text-secondary" />
+          </div>
     <div className="card" title={paragraph.content}>
       <div className="card-body">
         <div className="row align-items-center">
@@ -30,6 +41,10 @@ const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph }) => {
               </div>
               <div className="col-12 d-flex justify-content-end mt-2">
                 <div style={{ width: '80px', height: '80px' }}>
+                  <CharacterBalanceChart data={paragraph.charBalance} />
+                </div>
+                <div style={{ width: '80px', height: '80px' }}>
+                  <KanjiUsageChart data={paragraph.kanjiUsage} />
                   <CharacterBalanceChart data={paragraph.charBalance} height={80} />
                 </div>
                 <div style={{ width: '80px', height: '80px' }}>

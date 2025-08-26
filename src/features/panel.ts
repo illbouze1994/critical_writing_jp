@@ -970,14 +970,24 @@ export async function updatePanel(): Promise<void> {
  * @param newOrderParagraphIds 並べ替え後の段落IDの配列
  */
 async function reorderParagraphs(newOrderParagraphIds: string[]): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showWarningMessage('並べ替え操作を行うには、対象のファイルがアクティブである必要があります。');
+  const targetUri = getLastAnalyzedUri();
+  if (!targetUri) {
+    vscode.window.showWarningMessage('並べ替え対象のファイルが見つかりません。');
     return;
   }
 
-  const document = editor.document;
-  const cachedResult = getCachedAnalysisResult(document.uri.toString());
+  const documentUri = vscode.Uri.parse(targetUri);
+  const document = await vscode.workspace.openTextDocument(documentUri);
+  const editor = vscode.window.visibleTextEditors.find(
+    (e) => e.document.uri.toString() === targetUri
+  );
+
+  if (!document) {
+    vscode.window.showErrorMessage('ドキュメントを開けませんでした。');
+    return;
+  }
+
+  const cachedResult = getCachedAnalysisResult(targetUri);
 
   if (!cachedResult || !cachedResult.paragraphs) {
     vscode.window.showWarningMessage('並べ替えの基準となる解析データが見つかりません。');

@@ -48,6 +48,7 @@ const App = () => {
                 <div className="container-xl">
                     <div className="row g-2 align-items-center">
                         <div className="col">
+                            {/* Page title removed for cleaner section-based titles */}
                             <h2 className="page-title">
                                 文書解析結果
                             </h2>
@@ -73,6 +74,9 @@ const App = () => {
                                 />
                             </div>
                             <div className="col-12">
+                                <div className="page-header mt-4">
+                                    <h2 className="page-title">段落プレビューと並び替え</h2>
+                                </div>
                                 <ParagraphDashboard paragraphs={analysisData.paragraphs} />
                             </div>
                         </div>

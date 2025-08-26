@@ -379,7 +379,7 @@ describe('GoogleBooksClient', () => {
       await jest.runAllTimersAsync();
 
       await expect(promise).rejects.toThrow(
-        '書籍検索に失敗しました: レート制限により検索に失敗しました。しばらく待ってから再試行してください。'
+        'レート制限により検索に失敗しました。しばらく待ってから再試行してください。'
       );
     });
 

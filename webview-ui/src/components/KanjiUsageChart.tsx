@@ -8,7 +8,6 @@ export interface KanjiUsageData {
 
 interface KanjiUsageChartProps {
   data: KanjiUsageData[];
-  height?: number;
 }
 
 const COLORS = ['#00C49F', '#FF8042'];
@@ -24,22 +23,29 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-const KanjiUsageChart: React.FC<KanjiUsageChartProps> = ({ data, height = 250 }) => {
-  const isSmall = height < 100;
+const KanjiUsageChart: React.FC<KanjiUsageChartProps> = ({ data }) => {
+  // If there's no data or only zero values, don't render the chart
+  const totalValue = data.reduce((sum, entry) => sum + entry.value, 0);
+  if (totalValue === 0) {
+    return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--vscode-descriptionForeground)' }}>-</div>;
+  }
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
+          labelLine={false}
+          innerRadius="60%"
+          outerRadius="80%"
           labelLine={!isSmall}
           innerRadius={isSmall ? 15 : 40}
           outerRadius={isSmall ? 30 : 80}
           fill="#8884d8"
           dataKey="value"
-          label={isSmall ? undefined : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          label={false}
         >
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
