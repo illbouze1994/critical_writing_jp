@@ -31,13 +31,7 @@ type SortableItemProps = {
 };
 
 const SortableItem: React.FC<SortableItemProps> = (props) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: props.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -56,19 +50,9 @@ const SortableItem: React.FC<SortableItemProps> = (props) => {
   );
 };
 
-type ParagraphDashboardProps = {
-        attributes={attributes}
-        listeners={listeners}
-      />
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <ParagraphCard paragraph={props.paragraph} />
-    </div>
-  );
-}
-
 interface ParagraphDashboardProps {
   paragraphs: ParagraphData[];
-};
+}
 
 const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: initialParagraphs }) => {
   const [paragraphs, setParagraphs] = useState<ParagraphData[]>(initialParagraphs);
@@ -93,31 +77,21 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
         const newIndex = items.findIndex((item) => item.id === over.id);
 
         if (oldIndex === -1 || newIndex === -1) {
-            return items;
+          return items;
         }
 
-        const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      setParagraphs((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
         const reorderedParagraphs = arrayMove(items, oldIndex, newIndex);
 
         // Notify the extension about the reorder
         vscodeApi.postMessage({
           command: 'reorderParagraphs',
-          payload: reorderedParagraphs.map(p => p.id),
+          payload: reorderedParagraphs.map((p) => p.id),
         });
 
         return reorderedParagraphs;
       });
     }
   };
-      }
 
   return (
     <DndContext
@@ -126,7 +100,7 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
       onDragEnd={handleDragEnd}
     >
       <SortableContext
-        items={paragraphs.map(p => p.id)}
+        items={paragraphs.map((p) => p.id)}
         strategy={verticalListSortingStrategy}
       >
         <div>

@@ -37,9 +37,8 @@ const KanjiUsageChart: React.FC<KanjiUsageChartProps> = ({ data }) => {
           data={data}
           cx="50%"
           cy="50%"
-          labelLine={!isSmall}
-          innerRadius={isSmall ? 15 : 40}
-          outerRadius={isSmall ? 30 : 80}
+          innerRadius={40}
+          outerRadius={80}
           fill="#8884d8"
           dataKey="value"
           label={false}
