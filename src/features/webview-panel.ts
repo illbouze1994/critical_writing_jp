@@ -110,7 +110,8 @@ export class WebviewPanel {
             chars: paragraph.chars,
             kw: this.extractKeywords(paragraph),
             roi: paragraph.features?.roi,
-            llm: llmResult ? (llmResult.style + llmResult.argumentation) / 2 : undefined
+            llm: llmResult ? (llmResult.style + llmResult.argumentation) / 2 : undefined,
+            features: paragraph.features, // Pass through the features for charts
           };
         })
       }

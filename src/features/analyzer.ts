@@ -70,15 +70,9 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     const config = vscode.workspace.getConfiguration('criticalWritingJp');
     const roiWeights = config.get('roi.weights', { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 });
     
-    // キーワード抽出（キーワードハイライトが有効な場合のみ）
-    let keywords = new Map();
-    const { isKeywordHighlightEnabled } = await import('./panel');
-    if (isKeywordHighlightEnabled()) {
-      console.log(`[Analyzer] Extracting keywords (mode: flashtext)`);
-      keywords = await keywordEngine.extractKeywords(paragraphs);
-    } else {
-      console.log(`[Analyzer] Keyword extraction disabled - toggle is OFF`);
-    }
+    // Keyword extraction should always run as it's used for ROI scores, not just highlighting.
+    console.log(`[Analyzer] Extracting keywords (mode: flashtext)`);
+    const keywords = await keywordEngine.extractKeywords(paragraphs);
     
     // ROIスコア計算
     console.log(`[Analyzer] Calculating ROI scores`);

@@ -3,98 +3,51 @@
 exports[`ParagraphCard renders correctly with given paragraph data 1`] = `
 <DocumentFragment>
   <div
-    class="card"
-    title="This is a test paragraph that is long enough to be truncated."
+    class="paragraph-card"
+    title="This is a test paragraph."
   >
+    <span
+      class="drag-handle"
+    >
+      ::
+    </span>
     <div
-      class="card-body"
+      class="paragraph-content"
+    >
+      This is a test paragraph.
+    </div>
+    <div
+      class="paragraph-meta"
     >
       <div
-        class="row align-items-center"
+        class="paragraph-chars"
       >
         <div
-          class="col-auto"
-          style="cursor: grab;"
+          class="value"
         >
-          <svg
-            class="tabler-icon tabler-icon-grip-vertical text-secondary"
-            fill="none"
-            height="24"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            width="24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M9 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-            <path
-              d="M9 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-            <path
-              d="M9 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-            <path
-              d="M15 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-            <path
-              d="M15 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-            <path
-              d="M15 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
-            />
-          </svg>
+          150
         </div>
         <div
-          class="col"
+          class="label"
         >
-          <p
-            class="text-secondary"
-          >
-            This is a test paragraph that is long enough to be truncated....
-          </p>
+          文字
+        </div>
+      </div>
+      <div
+        class="paragraph-charts"
+      >
+        <div
+          class="chart-container"
+        >
+          <div>
+            CharacterBalanceChart
+          </div>
         </div>
         <div
-          class="col-auto"
+          class="chart-container"
         >
-          <div
-            class="row align-items-center text-center"
-          >
-            <div
-              class="col-12"
-            >
-              <div
-                class="h1 mb-0"
-              >
-                150
-              </div>
-              <div
-                class="text-secondary"
-              >
-                文字
-              </div>
-            </div>
-            <div
-              class="col-12 d-flex justify-content-end mt-2"
-            >
-              <div
-                style="width: 80px; height: 80px;"
-              >
-                <div>
-                  CharacterBalanceChart
-                </div>
-              </div>
-              <div
-                style="width: 80px; height: 80px;"
-              >
-                <div>
-                  KanjiUsageChart
-                </div>
-              </div>
-            </div>
+          <div>
+            KanjiUsageChart
           </div>
         </div>
       </div>

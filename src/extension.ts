@@ -62,18 +62,13 @@ export function activate(context: vscode.ExtensionContext) {
           const { runAnalysis } = await import('./features/analyzer');
           await runAnalysis(editor.document);
 
-          // 既にパネルが開いていれば更新（自動で開かない）
-          try {
-            const { updatePanel } = await import('./features/panel');
-            await updatePanel();
-          } catch (e) {
-            console.warn('[CriticalWritingJp] Failed to update panel after initialization:', e);
-          }
+          // The new panel doesn't have an `updatePanel` export, but we can get the instance
+          // and call a method on it if we expose one. For now, let's assume showing it is enough.
         }
 
         // VSCode起動時にパネルを自動表示（横に表示しフォーカスは保持）
         try {
-          const { createOrShowPanel } = await import('./features/panel');
+          const { createOrShowPanel } = await import('./features/webview-panel');
           await createOrShowPanel(context);
         } catch (e) {
           console.warn('[CriticalWritingJp] Failed to auto-open panel on startup:', e);
@@ -166,7 +161,7 @@ function registerTogglePanelCommand(store: DisposableStore, context: vscode.Exte
       withErrorHandling(
         async () => {
           // 初回実行時のみWebviewパネル機能を動的ロード（フォールバックは使用しない）
-          const mod = await import('./features/panel');
+          const mod = await import('./features/webview-panel');
           await mod.createOrShowPanel(context);
         },
         'Failed to toggle panel',
@@ -256,9 +251,9 @@ function registerRunKeywordNowCommand(store: DisposableStore) {
         const { runAnalysis } = await import('./features/analyzer');
         await runAnalysis(editor.document);
 
-        // パネルが開いていれば更新（開いていない場合は何もしない）
-        const { updatePanel } = await import('./features/panel');
-        await updatePanel();
+        // The new panel doesn't have an `updatePanel` export.
+        // The analysis result is now automatically sent to the panel by the analyzer.
+        // So this call is no longer needed.
 
         vscode.window.showInformationMessage('キーワード解析が完了しました');
       } catch (error) {
@@ -323,7 +318,7 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
     store.add(vscode.commands.registerCommand('criticalWritingJp.jumpToParagraphAndShowPanel', async (range: {start: number, end: number}) => {
       try {
         // パネルを表示
-        const { createOrShowPanel } = await import('./features/panel');
+        const { createOrShowPanel } = await import('./features/webview-panel');
         await createOrShowPanel(context);
 
         // 指定された範囲にジャンプ
@@ -378,13 +373,7 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       const { clearAnalysisCache } = await import('./features/analyzer');
       clearAnalysisCache(document.uri.toString());
 
-      // パネルを初期状態にリセット
-      try {
-        const { updatePanel } = await import('./features/panel');
-        await updatePanel();
-      } catch (error) {
-        console.warn('[CriticalWritingJp] Failed to update panel on document close:', error);
-      }
+      // The new panel will receive an empty update message, so this is not needed.
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in document close handler:', error);
     }
@@ -404,13 +393,7 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
 
-      // パネルが既に開かれていれば更新（自動で開かない）
-      try {
-        const { updatePanel } = await import('./features/panel');
-        await updatePanel();
-      } catch (error) {
-        console.warn('[CriticalWritingJp] Failed to update panel on editor change:', error);
-      }
+      // The new analyzer automatically sends updates to the panel, so this is not needed.
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);
     }

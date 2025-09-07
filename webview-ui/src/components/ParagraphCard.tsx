@@ -1,16 +1,22 @@
 import React from 'react';
-import CharacterBalanceChart, { CharBalanceData } from './CharacterBalanceChart';
-import KanjiUsageChart, { KanjiUsageData } from './KanjiUsageChart';
-import { IconGripVertical } from '@tabler/icons-react';
+import CharacterBalanceChart from './CharacterBalanceChart';
+import KanjiUsageChart from './KanjiUsageChart';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 
 export interface ParagraphData {
   id: string;
-  content: string;
-  charCount: number;
-  charBalance: CharBalanceData[];
-  kanjiUsage: KanjiUsageData[];
+  head: string;
+  chars: number;
+  features: {
+    hiragana_ratio: number;
+    katakana_ratio: number;
+    kanji_ratio: number;
+    alphanumeric_ratio: number;
+    joyo_kanji_usage: number;
+    [key: string]: any;
+  };
+  [key: string]: any;
 }
 
 interface ParagraphCardProps {
@@ -20,33 +26,37 @@ interface ParagraphCardProps {
 }
 
 const ParagraphCard: React.FC<ParagraphCardProps> = ({ paragraph, attributes, listeners }) => {
+  const charBalanceData = [
+    { name: 'ひらがな', value: paragraph.features.hiragana_ratio },
+    { name: 'カタカナ', value: paragraph.features.katakana_ratio },
+    { name: '漢字', value: paragraph.features.kanji_ratio },
+    { name: '英数字', value: paragraph.features.alphanumeric_ratio },
+  ];
+
+  const kanjiUsageData = [
+    { name: '常用漢字', value: paragraph.features.joyo_kanji_usage },
+    { name: 'その他', value: 1 - paragraph.features.joyo_kanji_usage },
+  ];
+
   return (
-    <div className="card" title={paragraph.content} {...attributes}>
-      <div className="card-body">
-        <div className="row align-items-center">
-          <div className="col-auto" style={{ cursor: 'grab' }} {...listeners}>
-            <IconGripVertical size={24} className="text-secondary" />
+    <div className="paragraph-card" title={paragraph.head} {...attributes}>
+      <span className="drag-handle" {...listeners}>::</span>
+
+      <div className="paragraph-content">
+        {paragraph.head}
+      </div>
+
+      <div className="paragraph-meta">
+        <div className="paragraph-chars">
+          <div className="value">{paragraph.chars}</div>
+          <div className="label">文字</div>
+        </div>
+        <div className="paragraph-charts">
+          <div className="chart-container">
+            <CharacterBalanceChart data={charBalanceData} />
           </div>
-          <div className="col">
-            <p className="text-secondary">{paragraph.content.substring(0, 120)}...</p>
-          </div>
-          <div className="col-auto">
-            <div className="row align-items-center text-center">
-              <div className="col-12">
-                <div className="h1 mb-0">{paragraph.charCount}</div>
-                <div className="text-secondary">文字</div>
-              </div>
-              <div className="col-12 d-flex justify-content-end mt-2">
-                  <CharacterBalanceChart data={paragraph.charBalance} width={80} height={80} />
-                  <KanjiUsageChart data={paragraph.kanjiUsage} width={80} height={80} />
-                <div style={{ width: '80px', height: '80px' }}>
-                  <CharacterBalanceChart data={paragraph.charBalance} />
-                </div>
-                <div style={{ width: '80px', height: '80px' }}>
-                  <KanjiUsageChart data={paragraph.kanjiUsage} />
-                </div>
-              </div>
-            </div>
+          <div className="chart-container">
+            <KanjiUsageChart data={kanjiUsageData} />
           </div>
         </div>
       </div>

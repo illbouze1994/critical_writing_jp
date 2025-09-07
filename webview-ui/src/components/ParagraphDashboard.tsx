@@ -20,10 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import ParagraphCard, { ParagraphData } from './ParagraphCard';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
-
-const vscodeApi = typeof acquireVsCodeApi === 'function'
-  ? acquireVsCodeApi()
-  : { postMessage: (message: any) => console.log('postMessage (mock)', message) };
+import vscodeApi from '../vscodeApi';
 
 type SortableItemProps = {
   id: string;
@@ -108,11 +105,9 @@ const ParagraphDashboard: React.FC<ParagraphDashboardProps> = ({ paragraphs: ini
         items={paragraphs.map(p => p.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div>
-          {paragraphs.map((p) => (
-            <SortableItem key={p.id} id={p.id} paragraph={p} />
-          ))}
-        </div>
+        {paragraphs.map((p) => (
+          <SortableItem key={p.id} id={p.id} paragraph={p} />
+        ))}
       </SortableContext>
     </DndContext>
   );

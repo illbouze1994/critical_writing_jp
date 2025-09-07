@@ -1,0 +1,171 @@
+/*
+ * CriticalWritingJp Simple UI Styles
+ * Based on COLOR_CHART.html (Light Theme)
+ */
+
+/* --- Variables --- */
+:root {
+  --background-color: #FFFFFF;
+  --surface-color: #F7F7F7;
+  --text-primary-color: #1A1A1A;
+  --text-secondary-color: #4D4D4D;
+  --primary-color: #0072B2;
+  --secondary-color: #009E73;
+  --accent-color: #E69F00;
+  --error-color: #D55E00;
+  --warning-color: #F0E442;
+  --info-color: #56B4E9;
+  --border-color: #D9D9D9;
+}
+
+/* --- Global Styles --- */
+body {
+  background-color: var(--background-color);
+  color: var(--text-primary-color);
+  font-family: var(--vscode-font-family, 'Noto Sans JP', sans-serif);
+  margin: 0;
+  padding: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary-color);
+}
+
+p {
+  color: var(--text-secondary-color);
+}
+
+/* --- Layout --- */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.section {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.section-title {
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--primary-color);
+  font-size: 1.2rem;
+}
+
+/* --- Components --- */
+
+/* AnalysisStats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  background-color: var(--background-color);
+  border-radius: 6px;
+  padding: 0.75rem;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.stat-card .value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.stat-card .label {
+  font-size: 0.8rem;
+  color: var(--text-secondary-color);
+}
+
+.stat-card.is-danger .value {
+  color: var(--error-color);
+}
+
+.stat-card.is-warning .value {
+  color: var(--accent-color);
+}
+
+
+/* ParagraphDashboard & ParagraphCard */
+.paragraph-card {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.paragraph-card:hover {
+  border-color: var(--primary-color);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-secondary-color);
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.paragraph-content {
+  flex-grow: 1;
+  font-size: 0.9rem;
+  color: var(--text-secondary-color);
+}
+
+.paragraph-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.paragraph-chars {
+  text-align: center;
+}
+
+.paragraph-chars .value {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.paragraph-chars .label {
+  font-size: 0.7rem;
+  color: var(--text-secondary-color);
+}
+
+.paragraph-charts {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chart-container {
+  width: 60px;
+  height: 60px;
+}
+
+/* --- Buttons --- */
+.button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button.secondary {
+  background-color: var(--text-secondary-color);
+}

@@ -3,172 +3,48 @@
 exports[`AnalysisStats renders correctly with default props 1`] = `
 <DocumentFragment>
   <div
-    class="page-header"
-  >
-    <h1
-      class="page-title"
-    >
-      段落分析
-    </h1>
-  </div>
-  <div
-    class="row row-cards"
+    class="stats-grid"
   >
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card  "
     >
       <div
-        class="row row-cards"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
+        0
+      </div>
+      <div
+        class="label"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-      >
-        <div
-          class="col-sm-6 col-lg-3"
-        class="card"
-      >
-        <div
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            総段落数
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                総段落数
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                0
-              </div>
-            </div>
-            0
-          </div>
-        </div>
+        総段落数
       </div>
     </div>
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card  "
     >
       <div
-        class="card"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            総文字数
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                総文字数
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                0
-              </div>
-            </div>
-            0
-          </div>
-        </div>
+        0
+      </div>
+      <div
+        class="label"
+      >
+        文字数超過
       </div>
     </div>
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card  "
     >
       <div
-        class="card"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            文字数超過
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                文字数超過
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                0
-              </div>
-            </div>
-            0
-          </div>
-        </div>
+        0
       </div>
-    </div>
-    <div
-      class="col-sm-6 col-lg-3"
-    >
       <div
-        class="card"
+        class="label"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            文字数不足
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                文字数不足
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                0
-              </div>
-            </div>
-            0
-          </div>
-        </div>
+        文字数不足
       </div>
     </div>
   </div>
@@ -178,172 +54,48 @@ exports[`AnalysisStats renders correctly with default props 1`] = `
 exports[`AnalysisStats renders correctly with given props 1`] = `
 <DocumentFragment>
   <div
-    class="page-header"
-  >
-    <h1
-      class="page-title"
-    >
-      段落分析
-    </h1>
-  </div>
-  <div
-    class="row row-cards"
+    class="stats-grid"
   >
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card  "
     >
       <div
-        class="row row-cards"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
+        10
+      </div>
+      <div
+        class="label"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-      >
-        <div
-          class="col-sm-6 col-lg-3"
-        class="card"
-      >
-        <div
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            総段落数
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                総段落数
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                10
-              </div>
-            </div>
-            10
-          </div>
-        </div>
+        総段落数
       </div>
     </div>
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card is-danger "
     >
       <div
-        class="card"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            総文字数
-          </div>
-          <div
-            class="fw-bold h2 mb-0  "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                総文字数
-              </div>
-              <div
-                class="fw-bold h2 mb-0  "
-              >
-                2500
-              </div>
-            </div>
-            2500
-          </div>
-        </div>
+        2
+      </div>
+      <div
+        class="label"
+      >
+        文字数超過
       </div>
     </div>
     <div
-      class="col-sm-6 col-lg-3"
+      class="stat-card  is-warning"
     >
       <div
-        class="card"
+        class="value"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            文字数超過
-          </div>
-          <div
-            class="fw-bold h2 mb-0 text-red "
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                文字数超過
-              </div>
-              <div
-                class="fw-bold h2 mb-0 text-red "
-              >
-                2
-              </div>
-            </div>
-            2
-          </div>
-        </div>
+        3
       </div>
-    </div>
-    <div
-      class="col-sm-6 col-lg-3"
-    >
       <div
-        class="card"
+        class="label"
       >
-        <div
-          class="col-sm-6 col-lg-3"
-          class="card-body p-2 text-center"
-        >
-          <div
-            class="text-secondary mb-1"
-          >
-            文字数不足
-          </div>
-          <div
-            class="fw-bold h2 mb-0  text-orange"
-          >
-            <div
-              class="card-body p-2 text-center"
-            >
-              <div
-                class="text-secondary mb-1"
-              >
-                文字数不足
-              </div>
-              <div
-                class="fw-bold h2 mb-0  text-orange"
-              >
-                3
-              </div>
-            </div>
-            3
-          </div>
-        </div>
+        文字数不足
       </div>
     </div>
   </div>

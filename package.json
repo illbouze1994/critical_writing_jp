@@ -269,14 +269,11 @@
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
-    "@tabler/core": "^1.4.0",
-    "@tabler/icons-react": "^3.34.1",
     "@types/chart.js": "^2.9.41",
     "chart.js": "^4.5.0",
     "joyo-kanji": "^0.2.1",
     "kuromoji": "^0.1.2",
     "python-shell": "^5.0.0",
-    "react-feather": "^2.0.10",
     "recharts": "^3.1.2",
     "textlint-rule-ja-joyo-or-jinmeiyo-kanji": "^1.0.3",
     "textlint-rule-preset-jtf-style": "^3.0.2"
