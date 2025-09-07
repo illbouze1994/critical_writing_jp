@@ -8,6 +8,12 @@ export enum ViewColumn {
   Three = 3
 }
 
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3
+}
+
 export enum StatusBarAlignment {
   Left = 1,
   Right = 2
@@ -18,6 +24,24 @@ export enum TextEditorRevealType {
   InCenter = 1,
   InCenterIfOutsideViewport = 2,
   AtTop = 3
+}
+
+export enum DecorationRangeBehavior {
+  OpenOpen = 0,
+  ClosedOpen = 1,
+  OpenClosed = 2,
+  ClosedClosed = 3
+}
+
+export const OverviewRulerLane = {
+  Left: 1,
+  Center: 2,
+  Right: 4,
+  Full: 7,
+};
+
+export class ThemeColor {
+  constructor(public id: string) {}
 }
 
 export class Range {
@@ -36,6 +60,10 @@ export class Selection extends Range {
 
 export class Uri {
   static file(path: string): Uri {
+    return new Uri(path);
+  }
+
+  static parse(path: string): Uri {
     return new Uri(path);
   }
   
@@ -65,7 +93,10 @@ export const workspace = {
       return config[key] ?? defaultValue;
     }),
     update: jest.fn()
-  })
+  }),
+  openTextDocument: jest.fn().mockImplementation((uri) => {
+    return Promise.resolve(new MockTextDocument(`content for ${uri.toString()}`));
+  }),
 };
 
 export const window = {

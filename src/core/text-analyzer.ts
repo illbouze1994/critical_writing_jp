@@ -142,6 +142,30 @@ export class TextAnalyzer {
   }
 
   /**
+   * 1つの段落について、rechartsで利用するためのデータを生成
+   * @param text 分析対象の段落テキスト
+   * @returns { charBalance: {name: string, value: number}[], kanjiUsage: {name: string, value: number}[] }
+   */
+  static getRechartsDataForParagraph(text: string) {
+    const analysis = this.analyzeCharacters(text);
+
+    const charBalance: {name: string, value: number}[] = [
+      { name: 'ひらがな', value: analysis.counts.hiragana },
+      { name: 'カタカナ', value: analysis.counts.katakana },
+      { name: '漢字', value: analysis.counts.kanji },
+      { name: '英数字', value: analysis.counts.alphanumeric },
+      { name: 'その他', value: analysis.counts.others },
+    ];
+
+    const kanjiUsage: {name: string, value: number}[] = [
+      { name: '常用漢字', value: analysis.counts.kanji - analysis.nonJoyoKanjiCount },
+      { name: '非常用漢字', value: analysis.nonJoyoKanjiCount },
+    ];
+
+    return { charBalance, kanjiUsage };
+  }
+
+  /**
    * 円グラフ表示用のデータを生成
    * @param analysis 文字種分析結果
    * @returns Chart.js用のデータ

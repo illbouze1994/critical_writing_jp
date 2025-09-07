@@ -28,7 +28,7 @@ export class Settings {
    */
   get keyword() {
     return {
-      mode: this._config.get<'rules' | 'tfidf' | 'embed'>('keyword.mode', 'rules')
+      mode: 'flashtext' as const
     };
   }
 
@@ -92,7 +92,7 @@ export class Settings {
    */
   get citationStyle() {
     return {
-      active: this._config.get<string>('citationStyle.active', 'generic.ja.v1'),
+      active: this._config.get<string>('citationStyle.active', 'デフォルト'),
       packPaths: this._config.get<string[]>('citationStyle.packPaths', []),
       autoFix: {
         enabled: this._config.get<boolean>('citationStyle.autoFix.enabled', false)

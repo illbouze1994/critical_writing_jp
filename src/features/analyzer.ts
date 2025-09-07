@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DisposableStore } from '../platform/disposable-store';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
 import { keywordEngine } from './keyword-engine';
@@ -15,13 +16,18 @@ let lastAnalyzedUri: string | undefined;
 
 // 診断情報コレクション
 let diagnosticCollection: vscode.DiagnosticCollection;
+// ステータスバーアイテム
+let statusBarItem: vscode.StatusBarItem | undefined;
+// 拡張機能本体から渡されるDisposableStore
+let analyzerDisposables: DisposableStore | undefined;
 
 /**
  * テキスト変更イベントの処理
  * @param event テキスト変更イベント
  */
 export async function handleTextChange(event: vscode.TextDocumentChangeEvent): Promise<void> {
-  if (event.document.languageId !== 'markdown') {
+  const lang = event.document.languageId;
+  if (lang !== 'markdown' && lang !== 'plaintext') {
     return;
   }
 
@@ -62,12 +68,11 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // 設定を取得
     const config = vscode.workspace.getConfiguration('criticalWritingJp');
-    const keywordMode = config.get<'rules' | 'tfidf' | 'embed'>('keyword.mode', 'rules');
     const roiWeights = config.get('roi.weights', { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 });
     
-    // キーワード抽出
-    console.log(`[Analyzer] Extracting keywords (mode: ${keywordMode})`);
-    const keywords = await keywordEngine.extractKeywords(paragraphs, keywordMode);
+    // Keyword extraction should always run as it's used for ROI scores, not just highlighting.
+    console.log(`[Analyzer] Extracting keywords (mode: flashtext)`);
+    const keywords = await keywordEngine.extractKeywords(paragraphs);
     
     // ROIスコア計算
     console.log(`[Analyzer] Calculating ROI scores`);
@@ -109,13 +114,84 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
 }
 
 /**
- * Markdownドキュメントから段落を検出
- * 仕様変更: "#"タグは章・節のタイトルとして扱い、
- * その下のテキスト内容を自動的に段落として分割する
+ * ドキュメントから段落を検出するディスパッチャ
  * @param document 対象ドキュメント
  * @returns 段落の配列
  */
 function detectParagraphs(document: vscode.TextDocument): Paragraph[] {
+  if (document.languageId === 'plaintext') {
+    return detectPlaintextParagraphs(document);
+  }
+  // Default to markdown for now
+  return detectMarkdownParagraphs(document);
+}
+
+/**
+ * Plaintextドキュメントから段落を検出
+ * @param document 対象ドキュメント
+ * @returns 段落の配列
+ */
+function detectPlaintextParagraphs(document: vscode.TextDocument): Paragraph[] {
+  const text = document.getText();
+  const lines = text.split('\n');
+  const paragraphs: Paragraph[] = [];
+  let currentParagraphLines: string[] = [];
+  let paragraphStartOffset = 0;
+  let currentOffset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith(' ')) { // New paragraph starts with a single-byte space
+      if (currentParagraphLines.length > 0) {
+        // Finalize the previous paragraph
+        const paragraphData = {
+          lines: currentParagraphLines,
+          startOffset: paragraphStartOffset,
+          type: ParagraphType.Normal,
+        };
+        finalizeParagraph(paragraphData, currentOffset, paragraphs);
+      }
+      // Start a new paragraph
+      currentParagraphLines = [line.substring(1)]; // Remove the leading space
+      paragraphStartOffset = currentOffset + 1;
+    } else if (line.trim() !== '' && currentParagraphLines.length > 0) {
+      // This line belongs to the current paragraph
+      currentParagraphLines.push(line);
+    } else {
+      // This is not part of a paragraph (e.g. empty line between paragraphs)
+      if (currentParagraphLines.length > 0) {
+        const paragraphData = {
+          lines: currentParagraphLines,
+          startOffset: paragraphStartOffset,
+          type: ParagraphType.Normal,
+        };
+        finalizeParagraph(paragraphData, currentOffset, paragraphs);
+        currentParagraphLines = [];
+      }
+    }
+    currentOffset += line.length + 1;
+  }
+
+  // Finalize the last paragraph if it exists
+  if (currentParagraphLines.length > 0) {
+    const paragraphData = {
+      lines: currentParagraphLines,
+      startOffset: paragraphStartOffset,
+      type: ParagraphType.Normal,
+    };
+    finalizeParagraph(paragraphData, currentOffset, paragraphs);
+  }
+
+  return paragraphs;
+}
+
+/**
+ * Markdownドキュメントから段落を検出
+ * @param document 対象ドキュメント
+ * @returns 段落の配列
+ */
+function detectMarkdownParagraphs(document: vscode.TextDocument): Paragraph[] {
   const text = document.getText();
   const lines = text.split('\n');
   const paragraphs: Paragraph[] = [];
@@ -332,7 +408,6 @@ function detectLineType(line: string): ParagraphType {
 function finalizeParagraph(
   currentParagraph: {
     lines: string[];
-    startLine: number;
     startOffset: number;
     type: ParagraphType;
   },
@@ -419,6 +494,12 @@ function calculateFeatures(text: string, type: ParagraphType): Record<string, nu
  * @param document 対象ドキュメント
  * @param result 解析結果
  */
+// 永続的な装飾タイプ（再解析時の重複作成を防止）
+let overDecorationType: vscode.TextEditorDecorationType | undefined;
+let underDecorationType: vscode.TextEditorDecorationType | undefined;
+let keywordDecorationType: vscode.TextEditorDecorationType | undefined;
+let charCountDecorationType: vscode.TextEditorDecorationType | undefined;
+
 async function updateEditorDecorations(
   document: vscode.TextDocument, 
   result: AnalysisResult
@@ -440,24 +521,31 @@ async function updateEditorDecorations(
   const { min, max } = settings.counting.threshold;
   
   // 装飾タイプを作成（初回のみ）
-  const overDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(255, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 0, 0, 0.3)',
-    borderRadius: '3px'
-  });
-  
-  const underDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(255, 165, 0, 0.1)',
-    border: '1px solid rgba(255, 165, 0, 0.3)',
-    borderRadius: '3px'
-  });
-  
-  const keywordDecoration = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(0, 255, 255, 0.15)',
-    border: '1px solid rgba(0, 255, 255, 0.4)',
-    borderRadius: '2px',
-    fontWeight: 'bold'
-  });
+  if (!overDecorationType) {
+    overDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 0, 0, 0.1)',
+      border: '1px solid rgba(255, 0, 0, 0.3)',
+      borderRadius: '3px'
+    });
+    analyzerDisposables?.add(overDecorationType);
+  }
+  if (!underDecorationType) {
+    underDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 165, 0, 0.1)',
+      border: '1px solid rgba(255, 165, 0, 0.3)',
+      borderRadius: '3px'
+    });
+    analyzerDisposables?.add(underDecorationType);
+  }
+  if (!keywordDecorationType) {
+    keywordDecorationType = vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(0, 255, 255, 0.15)',
+      border: '1px solid rgba(0, 255, 255, 0.4)',
+      borderRadius: '2px',
+      fontWeight: 'bold'
+    });
+    analyzerDisposables?.add(keywordDecorationType);
+  }
   
   const overRanges: vscode.Range[] = [];
   const underRanges: vscode.Range[] = [];
@@ -491,9 +579,9 @@ async function updateEditorDecorations(
         let index = -1;
         
         // 同じキーワードの複数出現をすべて検出
-        while ((index = paragraphText.indexOf(keyword.term, searchStart)) !== -1) {
+        while ((index = paragraphText.indexOf(keyword.text, searchStart)) !== -1) {
           const keywordStartPos = document.positionAt(startOffset + index);
-          const keywordEndPos = document.positionAt(startOffset + index + keyword.term.length);
+          const keywordEndPos = document.positionAt(startOffset + index + keyword.text.length);
           const keywordRange = new vscode.Range(keywordStartPos, keywordEndPos);
           keywordRanges.push(keywordRange);
           searchStart = index + 1;
@@ -503,9 +591,60 @@ async function updateEditorDecorations(
   }
   
   // 装飾を適用
-  editor.setDecorations(overDecoration, overRanges);
-  editor.setDecorations(underDecoration, underRanges);
-  editor.setDecorations(keywordDecoration, keywordRanges);
+  if (overDecorationType) editor.setDecorations(overDecorationType, overRanges);
+  if (underDecorationType) editor.setDecorations(underDecorationType, underRanges);
+  if (keywordDecorationType) editor.setDecorations(keywordDecorationType, keywordRanges);
+
+  // 文字数カウントの装飾（初回のみ作成）
+  if (!charCountDecorationType) {
+    charCountDecorationType = vscode.window.createTextEditorDecorationType({
+      after: {
+        margin: '0 0 0 1em',
+        color: new vscode.ThemeColor('editorCodeLens.foreground'),
+        fontStyle: 'italic',
+      },
+      before: {
+        margin: '0 1em 0 0',
+        color: new vscode.ThemeColor('editorCodeLens.foreground'),
+        fontStyle: 'italic',
+      },
+      rangeBehavior: (vscode as any).DecorationRangeBehavior ? (vscode as any).DecorationRangeBehavior.ClosedOpen : undefined,
+    });
+    analyzerDisposables?.add(charCountDecorationType);
+  }
+
+  const charCountRanges = result.paragraphs.map((p, index) => {
+    const startPos = document.positionAt(p.range.start);
+    const endPos = document.positionAt(p.range.end);
+    return {
+      range: new vscode.Range(startPos, endPos),
+      renderOptions: {
+        before: {
+          contentText: `${p.chars}`,
+          fontSize: '10pt',
+        },
+        after: {
+          contentText: ``,
+        },
+      },
+      // Only show hover message on the first paragraph to avoid duplication
+      hoverMessage: index === 0 ? 'クリックしてパネルを開く' : undefined,
+    };
+  });
+
+  // Attach command to decorations
+  const charCountRangesWithCommand = charCountRanges.map(d => ({
+    ...d,
+    command: {
+      command: 'criticalWritingJp.jumpToParagraphAndShowPanel',
+      title: 'パネルを開く',
+      arguments: [d.range],
+    },
+  }));
+
+  if (charCountDecorationType) {
+    editor.setDecorations(charCountDecorationType, charCountRangesWithCommand as vscode.DecorationOptions[]);
+  }
   
   // ステータスバーの更新
   updateStatusBar(result, settings);
@@ -515,6 +654,8 @@ async function updateEditorDecorations(
  * ステータスバーの更新
  */
 function updateStatusBar(result: AnalysisResult, settings: any): void {
+  if (!analyzerDisposables) return;
+
   const { min, max } = settings.counting.threshold;
   const overCount = result.paragraphs.filter(p => p.chars > max).length;
   const underCount = result.paragraphs.filter(p => p.chars < min).length;
@@ -525,16 +666,17 @@ function updateStatusBar(result: AnalysisResult, settings: any): void {
     statusText += ` 超過:${overCount} 不足:${underCount}`;
   }
   
-  // ステータスバーアイテムの作成（グローバルに保持する必要がある）
-  const globalAny = global as any;
-  if (!globalAny.criticalWritingStatusBar) {
-    globalAny.criticalWritingStatusBar = vscode.window.createStatusBarItem(
+  // ステータスバーアイテムの作成（初回のみ）
+  if (!statusBarItem) {
+    statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right, 100
     );
+    // DisposableStoreに登録して、拡張機能非アクティブ化時に破棄されるようにする
+    analyzerDisposables.add(statusBarItem);
   }
   
-  globalAny.criticalWritingStatusBar.text = `📝 ${statusText}`;
-  globalAny.criticalWritingStatusBar.show();
+  statusBarItem.text = `📝 ${statusText}`;
+  statusBarItem.show();
 }
 
 /**
@@ -554,6 +696,21 @@ export function getLastAnalyzedUri(): string | undefined {
 }
 
 /**
+ * 指定URIの解析キャッシュをクリア
+ * @param documentUri クリア対象のドキュメントURI
+ */
+export function clearAnalysisCache(documentUri: string): void {
+  analysisCache.delete(documentUri);
+  
+  // 削除されたドキュメントが最後に解析されたものの場合、リセット
+  if (lastAnalyzedUri === documentUri) {
+    lastAnalyzedUri = undefined;
+  }
+  
+  console.log(`[Analyzer] Cleared analysis cache for: ${documentUri}`);
+}
+
+/**
  * 指定URIのドキュメントを開いて解析を実行
  */
 export async function runAnalysisForUri(uriString: string): Promise<AnalysisResult | undefined> {
@@ -570,12 +727,17 @@ export async function runAnalysisForUri(uriString: string): Promise<AnalysisResu
 /**
  * アナライザーの初期化
  * @param context 拡張機能コンテキスト
+ * @param disposables 拡張機能全体のDisposableStore
  */
-export async function initializeAnalyzer(context: vscode.ExtensionContext): Promise<void> {
+export async function initializeAnalyzer(
+  context: vscode.ExtensionContext,
+  disposables: DisposableStore
+): Promise<void> {
+  analyzerDisposables = disposables;
   try {
     // 診断情報コレクションを作成
     diagnosticCollection = vscode.languages.createDiagnosticCollection('criticalWritingJp');
-    context.subscriptions.push(diagnosticCollection);
+    analyzerDisposables.add(diagnosticCollection);
 
     // キーワードエンジンの初期化（コンテキストを渡す）
     try {
@@ -593,28 +755,21 @@ export async function initializeAnalyzer(context: vscode.ExtensionContext): Prom
       console.warn('[Analyzer] Failed to initialize citation checker:', error);
     }
 
-    // キーワードエンジンの事前初期化（非同期、エラーは無視）
-    try {
-      // キーワードエンジンの初期化を試行（失敗しても継続）
-      setTimeout(async () => {
-        try {
-          const { keywordEngine } = await import('./keyword-engine');
-          // 空の段落で初期化テスト
-          await keywordEngine.extractKeywords([], 'rules');
-          console.log('[Analyzer] Keyword engine pre-initialized');
-        } catch (error) {
-          console.warn('[Analyzer] Keyword engine pre-initialization failed:', error);
-        }
-      }, 1000);
-    } catch (error) {
-      console.warn('[Analyzer] Failed to start keyword engine initialization:', error);
-    }
-
     console.log('[Analyzer] Initialized with diagnostic collection');
   } catch (error) {
     console.error('[Analyzer] Critical error during initialization:', error);
     throw error; // 重要なエラーのみ再スロー
   }
+}
+
+/**
+ * アナライザーのリソースを破棄
+ */
+export function disposeAnalyzer(): void {
+  // DisposableStoreによって自動的に破棄されるため、ここでは何もしない
+  statusBarItem = undefined;
+  analyzerDisposables = undefined;
+  console.log('[Analyzer] Disposed analyzer resources.');
 }
 
 /**

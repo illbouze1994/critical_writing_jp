@@ -1,0 +1,57 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`ParagraphCard renders correctly with given paragraph data 1`] = `
+<DocumentFragment>
+  <div
+    class="paragraph-card"
+    title="This is a test paragraph."
+  >
+    <span
+      class="drag-handle"
+    >
+      ::
+    </span>
+    <div
+      class="paragraph-content"
+    >
+      This is a test paragraph.
+    </div>
+    <div
+      class="paragraph-meta"
+    >
+      <div
+        class="paragraph-chars"
+      >
+        <div
+          class="value"
+        >
+          150
+        </div>
+        <div
+          class="label"
+        >
+          文字
+        </div>
+      </div>
+      <div
+        class="paragraph-charts"
+      >
+        <div
+          class="chart-container"
+        >
+          <div>
+            CharacterBalanceChart
+          </div>
+        </div>
+        <div
+          class="chart-container"
+        >
+          <div>
+            KanjiUsageChart
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

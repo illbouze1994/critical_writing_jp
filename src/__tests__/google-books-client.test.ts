@@ -167,18 +167,24 @@ describe('GoogleBooksClient', () => {
       const mockResults1: GoogleBooksResult[] = [{ title: 'Book 1', author: 'Author 1' }];
       const mockResults2: GoogleBooksResult[] = [{ title: 'Book 2', author: 'Author 2' }];
 
-      jest.spyOn(client as any, 'mockSearchAPI')
+      const mockApi = jest.spyOn(client as any, 'mockSearchAPI')
         .mockResolvedValueOnce(mockResults1)
         .mockResolvedValueOnce(mockResults2);
 
       const request1: BooksSearchRequest = { phrase: 'query 1' };
       const request2: BooksSearchRequest = { phrase: 'query 2' };
 
-      const result1 = await client.searchExactPhrase(request1);
-      const result2 = await client.searchExactPhrase(request2);
+      const promise1 = client.searchExactPhrase(request1);
+      const promise2 = client.searchExactPhrase(request2);
+
+      await jest.runAllTimersAsync();
+
+      const result1 = await promise1;
+      const result2 = await promise2;
 
       expect(result1).toEqual(mockResults1);
       expect(result2).toEqual(mockResults2);
+      expect(mockApi).toHaveBeenCalledTimes(2);
     });
 
     test('キャッシュクリアが正常に動作すること', async () => {
@@ -191,13 +197,17 @@ describe('GoogleBooksClient', () => {
       const request: BooksSearchRequest = { phrase: 'test query' };
 
       // 最初のリクエスト
-      await client.searchExactPhrase(request);
+      const promise1 = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      await promise1;
       
       // キャッシュクリア
       client.clearCache();
       
       // 2回目のリクエスト（キャッシュクリア後なので再度API呼び出しされる）
-      await client.searchExactPhrase(request);
+      const promise2 = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      await promise2;
 
       expect(mockSearchSpy).toHaveBeenCalledTimes(2);
     });
@@ -207,6 +217,8 @@ describe('GoogleBooksClient', () => {
     beforeEach(async () => {
       (mockContext.secrets.get as jest.Mock).mockResolvedValue('test-api-key');
       await client.checkApiKeyAvailable();
+       // 各テストの前にタイマーを進めておく
+      await jest.runAllTimersAsync();
     });
 
     test('基本的な検索が正常に動作すること', async () => {
@@ -214,7 +226,10 @@ describe('GoogleBooksClient', () => {
         phrase: '機械学習'
       };
 
-      const results = await client.searchExactPhrase(request);
+      const promise = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      const results = await promise;
+
 
       expect(results).toHaveLength(1);
       expect(results[0]).toEqual({
@@ -235,7 +250,9 @@ describe('GoogleBooksClient', () => {
         }
       };
 
-      const results = await client.searchExactPhrase(request);
+      const promise = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      const results = await promise;
 
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe('カスタムタイトル');
@@ -247,7 +264,9 @@ describe('GoogleBooksClient', () => {
         phrase: '統計学 プログラミング 機械学習'
       };
 
-      const results = await client.searchExactPhrase(request);
+      const promise = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      const results = await promise;
 
       // 複数のパターンにマッチするため、複数の結果が返される
       expect(results.length).toBeGreaterThan(1);
@@ -258,7 +277,9 @@ describe('GoogleBooksClient', () => {
         phrase: 'マッチしないクエリ'
       };
 
-      const results = await client.searchExactPhrase(request);
+      const promise = client.searchExactPhrase(request);
+      await jest.runAllTimersAsync();
+      const results = await promise;
 
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe('「マッチしないクエリ」関連書籍');
@@ -328,18 +349,19 @@ describe('GoogleBooksClient', () => {
       // 最初の呼び出しでRATE エラー、2回目で成功をモック
       const mockResults: GoogleBooksResult[] = [{ title: 'Success', author: 'Author' }];
       
-      jest.spyOn(client as any, 'mockSearchAPI')
+      const mockApi = jest.spyOn(client as any, 'mockSearchAPI')
         .mockRejectedValueOnce(new Error('RATE'))
         .mockResolvedValueOnce(mockResults);
 
-      jest.spyOn(client as any, 'retryWithBackoff');
-
       const request: BooksSearchRequest = { phrase: 'test' };
-      
-      // retryWithBackoffの呼び出しをテスト用に直接実行
-      const results = await (client as any).retryWithBackoff(request, undefined, 1, 2);
+      const promise = client.searchExactPhrase(request);
 
+      // タイマーを進めて再試行をトリガー
+      await jest.runAllTimersAsync();
+
+      const results = await promise;
       expect(results).toEqual(mockResults);
+      expect(mockApi).toHaveBeenCalledTimes(2);
     });
 
     test('最大再試行回数を超えた場合、エラーを投げること', async () => {
@@ -352,8 +374,12 @@ describe('GoogleBooksClient', () => {
 
       const request: BooksSearchRequest = { phrase: 'test' };
 
-      await expect((client as any).retryWithBackoff(request, undefined, 4, 3)).rejects.toThrow(
-        'レート制限により検索に失敗しました'
+      const promise = client.searchExactPhrase(request);
+      // タイマーをすべての再試行が完了するまで進める
+      await jest.runAllTimersAsync();
+
+      await expect(promise).rejects.toThrow(
+        'レート制限により検索に失敗しました。しばらく待ってから再試行してください。'
       );
     });
 
@@ -399,7 +425,7 @@ describe('GoogleBooksClient', () => {
 
     test('空のスニペットを適切にハンドリングすること', () => {
       const cleanedSnippet = (client as any).cleanSnippet(undefined);
-      expect(cleanedSnippet).toBeUndefined();
+      expect(cleanedSnippet).toBe('');
 
       const emptySnippet = (client as any).cleanSnippet('');
       expect(emptySnippet).toBe('');

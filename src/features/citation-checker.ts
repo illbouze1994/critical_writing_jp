@@ -91,7 +91,7 @@ export interface CitationViolation {
  */
 export class CitationChecker {
   private stylePackCache = new Map<string, CitationStylePack>();
-  private activeStyleId: string = 'generic.ja.v1';
+  private activeStyleId: string = 'デフォルト';
 
   /**
    * スタイルパックを読み込み
@@ -288,6 +288,22 @@ export class CitationChecker {
   private extractReferenceTokens(text: string): CitationToken[] {
     const tokens: CitationToken[] = [];
 
+    // まず「著者名、『書籍名』、出版社、出版年、30―90頁」形式を解析
+    const defaultJaRef = text.match(/^\s*([^、]+)、『([^』]+)』、([^、]+)、(\d{4})年(?:、(\d+)―(\d+)頁)?\s*$/);
+    if (defaultJaRef) {
+      const author = defaultJaRef[1].trim();
+      const title = defaultJaRef[2].trim();
+      const publisher = defaultJaRef[3].trim();
+      const year = defaultJaRef[4];
+      const pages = defaultJaRef[5] && defaultJaRef[6] ? `${defaultJaRef[5]}―${defaultJaRef[6]}頁` : '';
+      tokens.push({ kind: 'author', text: author });
+      tokens.push({ kind: 'title', text: title });
+      tokens.push({ kind: 'publisher', text: publisher });
+      tokens.push({ kind: 'year', text: year });
+      if (pages) tokens.push({ kind: 'pages', text: pages });
+      return tokens;
+    }
+
     // 簡易的な解析（実際にはより複雑な処理が必要）
     
     // 年の抽出
@@ -332,7 +348,7 @@ export class CitationChecker {
    * デフォルトスタイルパックの初期化
    */
   initializeDefaultStyles(): void {
-    // 汎用日本語スタイル
+    // 汎用日本語スタイル（既存）
     const genericJaStyle: CitationStylePack = {
       styleId: 'generic.ja.v1',
       displayName: '汎用日本語スタイル v1',
@@ -345,7 +361,6 @@ export class CitationChecker {
           validate: (tokens) => {
             const authorToken = tokens.find(t => t.kind === 'author');
             const yearToken = tokens.find(t => t.kind === 'year');
-            
             const issues: string[] = [];
             if (!authorToken || authorToken.text.length === 0) {
               issues.push('著者名が不明');
@@ -353,7 +368,6 @@ export class CitationChecker {
             if (!yearToken || !/^\d{4}$/.test(yearToken.text)) {
               issues.push('年が4桁ではない');
             }
-            
             return { ok: issues.length === 0, issues };
           },
           format: (tokens) => {
@@ -367,7 +381,7 @@ export class CitationChecker {
           id: 'ja-intext-bracket-format',
           target: 'intext',
           detect: /【[^】]+】/g,
-          validate: (tokens) => {
+          validate: () => {
             // 【】形式の基本検証
             return { ok: true, issues: [] };
           },
@@ -382,7 +396,63 @@ export class CitationChecker {
       referenceDelimiter: 'newline'
     };
 
+    // 依頼の「デフォルト」スタイル（書籍：著者名、『書籍名』、出版社、出版年、30―90頁）
+    const defaultJaStyle: CitationStylePack = {
+      styleId: 'デフォルト',
+      displayName: 'デフォルト',
+      locale: 'ja',
+      rules: [
+        {
+          id: 'ja-reference-default-book',
+          target: 'reference',
+          // 著者、タイトル、出版社、年、ページ（任意）
+          detect: /([^、\n]+)、『([^』\n]+)』、([^、\n]+)、(\d{4})年(?:、(\d+)―(\d+)頁)?/g,
+          validate: (tokens) => {
+            const issues: string[] = [];
+            const author = tokens.find(t => t.kind === 'author')?.text || '';
+            const title = tokens.find(t => t.kind === 'title')?.text || '';
+            const publisher = tokens.find(t => t.kind === 'publisher')?.text || '';
+            const year = tokens.find(t => t.kind === 'year')?.text || '';
+            if (!author) issues.push('著者名が不足');
+            if (!title) issues.push('書籍名が不足');
+            if (!publisher) issues.push('出版社が不足');
+            if (!/^\d{4}$/.test(year)) issues.push('出版年が不正');
+            return { ok: issues.length === 0, issues };
+          },
+          format: (tokens) => {
+            const author = tokens.find(t => t.kind === 'author')?.text || '';
+            const title = tokens.find(t => t.kind === 'title')?.text || '';
+            const publisher = tokens.find(t => t.kind === 'publisher')?.text || '';
+            const year = tokens.find(t => t.kind === 'year')?.text || '';
+            const pages = tokens.find(t => t.kind === 'pages')?.text || '';
+            return pages
+              ? `${author}、『${title}』、${publisher}、${year}年、${pages}`
+              : `${author}、『${title}』、${publisher}、${year}年`;
+          },
+          severity: 'warn'
+        }
+      ],
+      referencesOrdering: 'appearance',
+      referenceDelimiter: 'newline'
+    };
+
     this.loadStylePack(genericJaStyle);
+    this.loadStylePack(defaultJaStyle);
+
+    // 設定に基づくアクティブスタイル反映（存在しなければ「デフォルト」）
+    try {
+      const config = vscode.workspace.getConfiguration('criticalWritingJp');
+      const preferred = config.get<string>('citationStyle.active', 'デフォルト');
+      if (this.stylePackCache.has(preferred)) {
+        this.activeStyleId = preferred;
+      } else {
+        this.activeStyleId = 'デフォルト';
+      }
+      console.log(`[CitationChecker] Active style set to: ${this.activeStyleId}`);
+    } catch (e) {
+      // 失敗しても「デフォルト」を使用
+      this.activeStyleId = 'デフォルト';
+    }
   }
 }
 

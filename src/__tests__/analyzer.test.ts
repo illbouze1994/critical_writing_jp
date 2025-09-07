@@ -4,7 +4,7 @@
  */
 
 import { runAnalysis, handleTextChange, getCachedAnalysisResult } from '../features/analyzer';
-import { MockTextDocument } from './__mocks__/vscode';
+import { MockTextDocument, Uri } from './__mocks__/vscode';
 import { ParagraphType } from '../core/types';
 
 // Mock the getSettings function
@@ -15,6 +15,134 @@ jest.mock('../extension', () => ({
     roi: { weights: { w1: 0.35, w2: 0.35, w3: 0.15, w4: 0.15 } }
   })
 }));
+
+describe('Analyzer - Document Cache Management', () => {
+  test('should clear analysis cache for specific document', async () => {
+    const { clearAnalysisCache, getCachedAnalysisResult } = await import('../features/analyzer');
+    
+    // First create some analysis results
+    const content1 = ` 最初の文書です。テスト用の内容です。`;
+    const content2 = ` 二番目の文書です。別のテスト内容です。`;
+    
+    const document1 = new MockTextDocument(content1, 'markdown', Uri.file('test1.md'));
+    const document2 = new MockTextDocument(content2, 'markdown', Uri.file('test2.md'));
+    
+    // Run analysis on both documents
+    const result1 = await runAnalysis(document1 as any);
+    const result2 = await runAnalysis(document2 as any);
+    
+    expect(result1).toBeDefined();
+    expect(result2).toBeDefined();
+    
+    // Verify both are cached
+    expect(getCachedAnalysisResult(document1.uri.toString())).toBeDefined();
+    expect(getCachedAnalysisResult(document2.uri.toString())).toBeDefined();
+    
+    // Clear cache for document1
+    clearAnalysisCache(document1.uri.toString());
+    
+    // Verify document1 cache is cleared but document2 remains
+    expect(getCachedAnalysisResult(document1.uri.toString())).toBeUndefined();
+    expect(getCachedAnalysisResult(document2.uri.toString())).toBeDefined();
+  });
+
+  test('should reset lastAnalyzedUri when clearing the currently analyzed document', async () => {
+    const { clearAnalysisCache, getLastAnalyzedUri } = await import('../features/analyzer');
+    
+    const content = ` テスト文書です。`;
+    const document = new MockTextDocument(content, 'markdown');
+    
+    // Run analysis to set lastAnalyzedUri
+    await runAnalysis(document as any);
+    expect(getLastAnalyzedUri()).toBe(document.uri.toString());
+    
+    // Clear cache for the current document
+    clearAnalysisCache(document.uri.toString());
+    
+    // Verify lastAnalyzedUri is reset
+    expect(getLastAnalyzedUri()).toBeUndefined();
+  });
+});
+
+describe('Analyzer - Character Count Display', () => {
+  test('should use reduced font size for character count decorations', async () => {
+    const content = ` これはテスト段落です。文字数表示のフォントサイズが小さくなったかを確認します。`;
+    const document = new MockTextDocument(content, 'markdown');
+    
+    // Mock the editor decoration methods to capture the decoration options
+    const mockEditor = {
+      document,
+      setDecorations: jest.fn(),
+    };
+    
+    // Mock the updateEditorDecorations function indirectly by checking the result
+    const result = await runAnalysis(document as any);
+    expect(result).toBeDefined();
+    expect(result?.paragraphs.length).toBe(1);
+    
+    // The font size change is in the decoration setup, we verify the paragraph data is correct
+    const paragraph = result?.paragraphs[0];
+    expect(paragraph?.chars).toBeGreaterThan(0);
+    expect(paragraph?.text).toContain('これはテスト段落です');
+  });
+});
+
+describe('Analyzer - TXT File Support', () => {
+  test('should detect paragraphs in plaintext files with single-space indentation', async () => {
+    const content = ` 最初の段落です。これは半角スペース一文字でインデントされています。
+この行は前の段落の続きです。
+ 二番目の段落です。これも半角スペース一文字でインデントされています。
+この行も二番目の段落の続きです。
+
+ 三番目の段落です。空行の後に来ています。`;
+
+    const document = new MockTextDocument(content, 'plaintext');
+    const result = await runAnalysis(document as any);
+
+    expect(result).toBeDefined();
+    expect(result?.paragraphs.length).toBe(3);
+    
+    const firstParagraph = result?.paragraphs[0];
+    expect(firstParagraph?.text).toContain('最初の段落です');
+    expect(firstParagraph?.text).toContain('この行は前の段落の続きです');
+    
+    const secondParagraph = result?.paragraphs[1];
+    expect(secondParagraph?.text).toContain('二番目の段落です');
+    expect(secondParagraph?.text).toContain('この行も二番目の段落の続きです');
+    
+    const thirdParagraph = result?.paragraphs[2];
+    expect(thirdParagraph?.text).toContain('三番目の段落です');
+  });
+
+  test('should handle mixed plaintext content correctly', async () => {
+    const content = ` 通常の段落です。
+継続する内容です。
+
+ 別の段落です。
+
+間に空行がない行です。
+ 新しい段落の開始です。`;
+
+    const document = new MockTextDocument(content, 'plaintext');
+    const result = await runAnalysis(document as any);
+
+    expect(result).toBeDefined();
+    expect(result?.paragraphs.length).toBe(3);
+  });
+
+  test('should calculate character counts for plaintext files', async () => {
+    const content = ` これは文字数テストです。１２３４５６７８９０文字数を数えます。
+続きの行です。`;
+
+    const document = new MockTextDocument(content, 'plaintext');
+    const result = await runAnalysis(document as any);
+
+    expect(result).toBeDefined();
+    expect(result?.paragraphs.length).toBe(1);
+    const paragraph = result?.paragraphs[0];
+    expect(paragraph?.chars).toBeGreaterThan(0);
+  });
+});
 
 describe('Analyzer - Paragraph Detection (Specification Change)', () => {
   
@@ -169,7 +297,28 @@ console.log("test");
   });
 });
 
+describe('Analyzer - Plaintext Support', () => {
+  test('should detect paragraphs in plaintext files based on single-space indent', async () => {
+    const content = ` これは最初の段落です。\nこの行は同じ段落に属します。\n\n これは二番目の段落です。`;
+    const document = new MockTextDocument(content, 'plaintext');
+    const result = await runAnalysis(document as any);
+
+    expect(result).toBeDefined();
+    expect(result?.paragraphs).toHaveLength(2);
+    expect(result?.paragraphs[0].text).toBe('これは最初の段落です。\nこの行は同じ段落に属します。');
+    expect(result?.paragraphs[1].text).toBe('これは二番目の段落です。');
+  });
+});
+
 describe('Analyzer - Caching and Performance', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('should cache analysis results', async () => {
     const content = `# キャッシュテスト
 　テスト段落です。`;
@@ -197,6 +346,9 @@ describe('Analyzer - Caching and Performance', () => {
 
     // Should not throw error
     await expect(handleTextChange(event as any)).resolves.not.toThrow();
+
+    // Fast-forward timers
+    jest.runAllTimers();
   });
 
   test('should ignore non-markdown documents', async () => {

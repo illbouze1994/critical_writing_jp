@@ -28,7 +28,10 @@ export enum DecorationStyle {
   Quote = 'quote',
   
   /** 高ROIスコアの段落 */
-  HighROI = 'highROI'
+  HighROI = 'highROI',
+  
+  /** キーワードハイライト */
+  Keyword = 'keyword'
 }
 
 /**
@@ -64,7 +67,7 @@ export class UIDecorations {
   private statusBarItems = new Map<string, vscode.StatusBarItem>();
   
   // 現在の装飾状態
-  private currentDecorations = new Map<string, vscode.Range[]>();
+  private currentDecorations = new Map<string, DecorationStyle[]>();
 
   private constructor(private context: vscode.ExtensionContext) {
     this.initializeDecorationTypes();
@@ -119,7 +122,7 @@ export class UIDecorations {
 
     // 正常段落の装飾（軽微な境界線のみ）
     this.decorationTypes.set(DecorationStyle.Normal, vscode.window.createTextEditorDecorationType({
-      borderLeft: '2px solid',
+      border: '2px solid',
       borderColor: new vscode.ThemeColor('editorInfo.foreground'),
       opacity: '0.3'
     }));
@@ -136,7 +139,7 @@ export class UIDecorations {
 
     // 引用段落の装飾
     this.decorationTypes.set(DecorationStyle.Quote, vscode.window.createTextEditorDecorationType({
-      borderLeft: '4px solid',
+      border: '4px solid',
       borderColor: new vscode.ThemeColor('textBlockQuote.border'),
       backgroundColor: new vscode.ThemeColor('textBlockQuote.background'),
       after: {
@@ -154,6 +157,15 @@ export class UIDecorations {
         color: 'gold',
         fontWeight: 'bold'
       }
+    }));
+
+    // キーワードハイライト装飾
+    this.decorationTypes.set(DecorationStyle.Keyword, vscode.window.createTextEditorDecorationType({
+      backgroundColor: 'rgba(255, 255, 0, 0.3)', // 薄い黄色
+      border: '1px solid rgba(255, 215, 0, 0.8)',
+      borderRadius: '2px',
+      overviewRulerColor: 'rgba(255, 215, 0, 0.8)',
+      overviewRulerLane: vscode.OverviewRulerLane.Center
     }));
   }
 
@@ -207,7 +219,7 @@ export class UIDecorations {
     result: ParagraphAnalysisResult,
     llmResults?: Map<string, any>
   ): Promise<void> {
-    if (!editor || editor.document.languageId !== 'markdown') {
+    if (!editor || (editor.document.languageId !== 'markdown' && editor.document.languageId !== 'plaintext')) {
       return;
     }
 
@@ -296,11 +308,11 @@ export class UIDecorations {
     const connectionItem = this.statusBarItems.get('connection');
     if (connectionItem) {
       if (status.isOnline) {
-        connectionItem.text = '🌐 オンライン';
+        connectionItem.text = 'オンライン';
         connectionItem.color = new vscode.ThemeColor('statusBar.foreground');
         connectionItem.tooltip = 'CriticalWritingJp: オンライン機能が利用可能です';
       } else {
-        connectionItem.text = '📴 オフライン';
+        connectionItem.text = 'オフライン';
         connectionItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
         connectionItem.tooltip = 'CriticalWritingJp: オフラインモードで動作中';
       }
@@ -310,9 +322,9 @@ export class UIDecorations {
     // 段落統計の更新
     const statsItem = this.statusBarItems.get('stats');
     if (statsItem) {
-      statsItem.text = `📝 ${status.totalParagraphs}段落`;
+      statsItem.text = `${status.totalParagraphs}段落`;
       if (status.issueCount > 0) {
-        statsItem.text += ` (⚠️ ${status.issueCount})`;
+        statsItem.text += ` (${status.issueCount})`;
         statsItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
       } else {
         statsItem.color = new vscode.ThemeColor('statusBar.foreground');
@@ -325,11 +337,11 @@ export class UIDecorations {
     const llmItem = this.statusBarItems.get('llm');
     if (llmItem) {
       if (status.llmEnabled) {
-        llmItem.text = '🤖 LLM有効';
+        llmItem.text = 'LLM有効';
         llmItem.color = new vscode.ThemeColor('statusBarItem.prominentForeground');
         llmItem.tooltip = 'LLM機能が有効です。クリックして設定を変更';
       } else {
-        llmItem.text = '🤖 LLM無効';
+        llmItem.text = 'LLM無効';
         llmItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
         llmItem.tooltip = 'LLM機能が無効です。クリックして有効化';
       }
@@ -392,6 +404,79 @@ export class UIDecorations {
     });
     this.decorationTypes.clear();
     this.initializeDecorationTypes();
+  }
+
+  /**
+   * キーワードハイライトを適用
+   * @param editor エディタ
+   * @param keywords キーワードマップ
+   */
+  async applyKeywordHighlights(editor: vscode.TextEditor, keywords: Map<string, any[]>): Promise<void> {
+    try {
+      if (!editor || !keywords || keywords.size === 0) {
+        // console.log('[UIDecorations] No keywords available for highlighting');
+        return;
+      }
+
+      const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
+      if (!decorationType) {
+        console.error('[UIDecorations] Keyword decoration type not found');
+        return;
+      }
+
+      const ranges: vscode.Range[] = [];
+      const documentText = editor.document.getText();
+
+      // 各段落のキーワードをハイライト
+      keywords.forEach((keywordList, paragraphId) => {
+        keywordList.forEach(keyword => {
+          const keywordText = keyword.text || keyword;
+          if (!keywordText) return;
+
+          // キーワードのすべての出現箇所を検索
+          const regex = new RegExp(this.escapeRegex(keywordText), 'gi');
+          let match;
+          while ((match = regex.exec(documentText)) !== null) {
+            const startPos = editor.document.positionAt(match.index);
+            const endPos = editor.document.positionAt(match.index + keywordText.length);
+            ranges.push(new vscode.Range(startPos, endPos));
+          }
+        });
+      });
+
+      // キーワードハイライトを適用
+      editor.setDecorations(decorationType, ranges);
+      // console.log(`[UIDecorations] Applied keyword highlights: ${ranges.length} keywords`);
+    } catch (error) {
+      console.error('[UIDecorations] Error applying keyword highlights:', error);
+    }
+  }
+
+  /**
+   * キーワードハイライトをクリア
+   * @param editor エディタ
+   */
+  async clearKeywordHighlights(editor: vscode.TextEditor): Promise<void> {
+    if (!editor) {
+      return;
+    }
+    const decorationType = this.decorationTypes.get(DecorationStyle.Keyword);
+    if (decorationType) {
+      try {
+        editor.setDecorations(decorationType, []);
+        // console.log('[UIDecorations] Cleared keyword highlights');
+      } catch (error) {
+        console.error('[UIDecorations] Error clearing keyword highlights:', error);
+      }
+    }
+  }
+
+  /**
+   * 正規表現用にエスケープ
+   * @param text エスケープするテキスト
+   */
+  private escapeRegex(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**
