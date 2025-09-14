@@ -59,19 +59,12 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (editor && (editor.document.languageId === 'markdown' || editor.document.languageId === 'plaintext') && !editor.document.isClosed) {
           lastActiveMarkdownEditor = editor;
-          const { runAnalysis } = await import('./features/analyzer');
-          await runAnalysis(editor.document);
-
-          // The new panel doesn't have an `updatePanel` export, but we can get the instance
-          // and call a method on it if we expose one. For now, let's assume showing it is enough.
-        }
-
-        // VSCode起動時にパネルを自動表示（横に表示しフォーカスは保持）
-        try {
+          // 先にパネルを表示
           const { createOrShowPanel } = await import('./features/webview-panel');
           await createOrShowPanel(context);
-        } catch (e) {
-          console.warn('[CriticalWritingJp] Failed to auto-open panel on startup:', e);
+          // 次に解析を実行
+          const { runAnalysis } = await import('./features/analyzer');
+          await runAnalysis(editor.document);
         }
       } catch (error) {
         console.error('[CriticalWritingJp] Failed to initialize analyzer:', error);
@@ -389,11 +382,13 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       }
       lastActiveMarkdownEditor = editor;
 
+      // パネルを表示
+      const { createOrShowPanel } = await import('./features/webview-panel');
+      await createOrShowPanel(context);
+
       // 新しいファイルが開かれた時の初期解析
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
-
-      // The new analyzer automatically sends updates to the panel, so this is not needed.
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);
     }

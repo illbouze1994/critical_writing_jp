@@ -2,10 +2,12 @@ import * as vscode from 'vscode';
 import { DisposableStore } from '../platform/disposable-store';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
+import { WebviewPanel } from './webview-panel';
 import { keywordEngine } from './keyword-engine';
 import { roiEngine } from './roi-engine';
 import { styleChecker } from './style-checker';
 import { citationChecker } from './citation-checker';
+import * as joyoKanji from 'joyo-kanji';
 
 // デバウンス処理済みの解析関数
 const debouncedAnalysis = debounce(performAnalysis, 150);
@@ -20,6 +22,8 @@ let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem | undefined;
 // 拡張機能本体から渡されるDisposableStore
 let analyzerDisposables: DisposableStore | undefined;
+// 拡張機能のコンテキスト
+let extensionContext: vscode.ExtensionContext;
 
 /**
  * テキスト変更イベントの処理
@@ -51,6 +55,57 @@ export async function runAnalysis(document: vscode.TextDocument): Promise<Analys
     console.error('[Analyzer] Analysis failed:', error);
     return undefined;
   }
+}
+
+function calculateOverallStats(paragraphs: Paragraph[]) {
+  const allText = paragraphs.map(p => p.text).join('');
+  const totalChars = allText.length;
+
+  let hiragana = 0;
+  let katakana = 0;
+  let kanji = 0;
+  let other = 0;
+  let joyo = 0;
+  let nonJoyo = 0;
+
+  for (const char of allText) {
+    if (char.match(/[\u3040-\u309F]/)) {
+      hiragana++;
+    } else if (char.match(/[\u30A0-\u30FF]/)) {
+      katakana++;
+    } else if (char.match(/[\u4E00-\u9FAF]/)) {
+      kanji++;
+      if (joyoKanji.isJoyo(char)) {
+        joyo++;
+      } else {
+        nonJoyo++;
+      }
+    } else {
+      other++;
+    }
+  }
+
+  const charBalance = [
+    { name: 'ひらがな', value: hiragana / totalChars },
+    { name: 'カタカナ', value: katakana / totalChars },
+    { name: '漢字', value: kanji / totalChars },
+    { name: 'その他', value: other / totalChars },
+  ];
+
+  const joyoKanjiData = [
+    { name: '常用漢字', value: joyo / (joyo + nonJoyo || 1) },
+    { name: '常用外漢字', value: nonJoyo / (joyo + nonJoyo || 1) },
+  ];
+
+  return {
+    summary: {
+      chars: totalChars,
+    },
+    charts: {
+      charBalance,
+      joyoKanji: joyoKanjiData,
+    }
+  };
 }
 
 /**
@@ -104,6 +159,24 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // 診断情報を更新
     updateDiagnostics(document, styleViolations, citationViolations);
+
+    // Webviewパネルに解析結果を送信
+    if (extensionContext) {
+      const overallStats = calculateOverallStats(result.paragraphs);
+      const { WebviewPanel } = await import('./webview-panel');
+      const panel = WebviewPanel.getInstance(extensionContext);
+      const panelUpdateData = {
+        paragraphs: result.paragraphs,
+        statistics: {
+          totalCount: result.paragraphs.length,
+          chars: overallStats.summary.chars,
+        },
+        charts: overallStats.charts,
+      };
+      // updateWithAnalysisResult は ParagraphAnalysisResult 型を期待するが、
+      // 構造が互換なのでそのまま渡す
+      panel.updateWithAnalysisResult(panelUpdateData as any);
+    }
     
     return result;
   } catch (error) {
@@ -733,6 +806,7 @@ export async function initializeAnalyzer(
   context: vscode.ExtensionContext,
   disposables: DisposableStore
 ): Promise<void> {
+  extensionContext = context;
   analyzerDisposables = disposables;
   try {
     // 診断情報コレクションを作成
