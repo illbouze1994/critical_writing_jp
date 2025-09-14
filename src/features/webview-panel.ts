@@ -80,7 +80,7 @@ export class WebviewPanel {
    * 分析結果でパネルを更新
    */
   async updateWithAnalysisResult(
-    result: ParagraphAnalysisResult,
+    result: ParagraphAnalysisResult & { charts: any }, // Add charts to the type
     llmResults?: Map<string, LLMEvaluationResult>,
     booksResults?: Map<string, GoogleBooksResult[]>
   ): Promise<void> {
@@ -97,22 +97,26 @@ export class WebviewPanel {
       payload: {
         summary: {
           total: result.statistics.totalCount,
+          chars: (result.statistics as any).chars || 0,
           over: result.paragraphs.filter(p => p.chars > maxThreshold).length,
           under: result.paragraphs.filter(p => p.chars < minThreshold).length
         },
+        charts: result.charts,
         rows: result.paragraphs.map(paragraph => {
           const llmResult = llmResults?.get(paragraph.id);
-          const booksResult = booksResults?.get(paragraph.id);
-
-          return {
+          const rowData: any = {
             id: paragraph.id,
             head: this.truncateText(paragraph.text, settings.ui.preview.headChars),
             chars: paragraph.chars,
             kw: this.extractKeywords(paragraph),
-            roi: paragraph.features?.roi,
-            llm: llmResult ? (llmResult.style + llmResult.argumentation) / 2 : undefined,
-            features: paragraph.features, // Pass through the features for charts
           };
+          if (paragraph.features?.roi !== undefined) {
+            rowData.roi = paragraph.features.roi;
+          }
+          if (llmResult) {
+            rowData.llm = (llmResult.style + llmResult.argumentation) / 2;
+          }
+          return rowData;
         })
       }
     };
@@ -144,6 +148,16 @@ export class WebviewPanel {
 
       case 'refreshAnalysis':
         await vscode.commands.executeCommand('criticalWritingJp.runKeywordNow');
+        break;
+
+      case 'toggleKeywordHighlight':
+        console.log('[WebviewPanel] Received toggleKeywordHighlight command:', message.enabled);
+        // Placeholder for actual implementation
+        break;
+
+      case 'reorderParagraphs':
+        console.log('[WebviewPanel] Received reorderParagraphs command:', message.payload);
+        await vscode.commands.executeCommand('criticalWritingJp.dnd-reorder', message.payload);
         break;
 
       default:
@@ -243,7 +257,7 @@ export class WebviewPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
-        style-src ${webview.cspSource} 'unsafe-inline';
+        style-src ${webview.cspSource} https://fonts.googleapis.com 'unsafe-inline';
         script-src 'nonce-${nonce}';
         img-src ${webview.cspSource} data:;
         font-src https://fonts.gstatic.com;

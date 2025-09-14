@@ -4,6 +4,7 @@ import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
 import { WebviewPanel } from '../features/webview-panel';
 import { keywordEngine } from './keyword-engine';
+import { isJoyo } from 'joyo-kanji';
 import { roiEngine } from './roi-engine';
 import { styleChecker } from './style-checker';
 import { citationChecker } from './citation-checker';
@@ -54,6 +55,57 @@ export async function runAnalysis(document: vscode.TextDocument): Promise<Analys
     console.error('[Analyzer] Analysis failed:', error);
     return undefined;
   }
+}
+
+function calculateOverallStats(paragraphs: Paragraph[]) {
+  const allText = paragraphs.map(p => p.text).join('');
+  const totalChars = allText.length;
+
+  let hiragana = 0;
+  let katakana = 0;
+  let kanji = 0;
+  let other = 0;
+  let joyo = 0;
+  let nonJoyo = 0;
+
+  for (const char of allText) {
+    if (char.match(/[\u3040-\u309F]/)) {
+      hiragana++;
+    } else if (char.match(/[\u30A0-\u30FF]/)) {
+      katakana++;
+    } else if (char.match(/[\u4E00-\u9FAF]/)) {
+      kanji++;
+      if (isJoyo(char)) {
+        joyo++;
+      } else {
+        nonJoyo++;
+      }
+    } else {
+      other++;
+    }
+  }
+
+  const charBalance = [
+    { name: 'ひらがな', value: hiragana / totalChars },
+    { name: 'カタカナ', value: katakana / totalChars },
+    { name: '漢字', value: kanji / totalChars },
+    { name: 'その他', value: other / totalChars },
+  ];
+
+  const joyoKanji = [
+    { name: '常用漢字', value: joyo / (joyo + nonJoyo || 1) },
+    { name: '常用外漢字', value: nonJoyo / (joyo + nonJoyo || 1) },
+  ];
+
+  return {
+    summary: {
+      chars: totalChars,
+    },
+    charts: {
+      charBalance,
+      joyoKanji,
+    }
+  };
 }
 
 /**
@@ -110,11 +162,15 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // Webviewパネルに解析結果を送信
     if (extensionContext) {
+      const overallStats = calculateOverallStats(result.paragraphs);
       const panel = WebviewPanel.getInstance(extensionContext);
       const panelUpdateData = {
         paragraphs: result.paragraphs,
         statistics: {
           totalCount: result.paragraphs.length,
+          chars: overallStats.summary.chars,
+        },
+        charts: overallStats.charts,
         },
       };
       // updateWithAnalysisResult は ParagraphAnalysisResult 型を期待するが、

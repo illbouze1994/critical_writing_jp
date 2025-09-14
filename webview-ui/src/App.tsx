@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import AnalysisStats from './components/AnalysisStats';
 import ParagraphDashboard from './components/ParagraphDashboard';
+import CharacterBalanceChart from './components/CharacterBalanceChart';
+import KanjiUsageChart from './components/KanjiUsageChart';
 import vscodeApi from './vscodeApi';
 
 const App = () => {
@@ -11,7 +13,7 @@ const App = () => {
     const newState = !highlighting;
     setHighlighting(newState);
     vscodeApi.postMessage({
-      type: 'toggleKeywordHighlight',
+      command: 'toggleKeywordHighlight',
       enabled: newState,
     });
   };
@@ -54,11 +56,22 @@ const App = () => {
         <>
           <section className="section">
             <h2 className="section-title">全体サマリー</h2>
-            <AnalysisStats
-              paragraphCount={analysisData.summary.total}
-              overLimitCount={analysisData.summary.over}
-              underLimitCount={analysisData.summary.under}
-            />
+            <div className="summary-grid">
+              <AnalysisStats
+                paragraphCount={analysisData.summary.total}
+                overLimitCount={analysisData.summary.over}
+                underLimitCount={analysisData.summary.under}
+                charCount={analysisData.summary.chars}
+              />
+              <div className="chart-container">
+                <h3 className="chart-title">文字種バランス</h3>
+                <CharacterBalanceChart data={analysisData.charts.charBalance} />
+              </div>
+              <div className="chart-container">
+                <h3 className="chart-title">常用漢字の割合</h3>
+                <KanjiUsageChart data={analysisData.charts.joyoKanji} />
+              </div>
+            </div>
           </section>
 
           <section className="section">
