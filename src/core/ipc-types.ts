@@ -85,11 +85,23 @@ export interface PanelUpdate {
       /** 総段落数 */
       total: number;
       
+      /** 総文字数 */
+      chars: number;
+
       /** 閾値超過段落数 */
       over: number;
       
       /** 閾値未満段落数 */
       under: number;
+    };
+
+    /** グラフ用データ */
+    charts: {
+      /** 文字種バランス */
+      charBalance: { name: string; value: number }[];
+
+      /** 常用漢字の使用率 */
+      joyoKanji: { name: string; value: number }[];
     };
     
     /** 段落ごとの詳細データ */
