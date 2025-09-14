@@ -2,12 +2,12 @@ import * as vscode from 'vscode';
 import { DisposableStore } from '../platform/disposable-store';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
-import { WebviewPanel } from './webview-panel';
+import { WebviewPanel } from '../features/webview-panel';
 import { keywordEngine } from './keyword-engine';
-import * as joyoKanji from 'joyo-kanji';
 import { roiEngine } from './roi-engine';
 import { styleChecker } from './style-checker';
 import { citationChecker } from './citation-checker';
+import * as joyoKanji from 'joyo-kanji';
 
 // デバウンス処理済みの解析関数
 const debouncedAnalysis = debounce(performAnalysis, 150);
@@ -24,7 +24,6 @@ let statusBarItem: vscode.StatusBarItem | undefined;
 let analyzerDisposables: DisposableStore | undefined;
 // 拡張機能のコンテキスト
 let extensionContext: vscode.ExtensionContext;
-
 
 /**
  * テキスト変更イベントの処理
@@ -177,7 +176,7 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
       // 構造が互換なのでそのまま渡す
       panel.updateWithAnalysisResult(panelUpdateData as any);
     }
-    
+
     return result;
   } catch (error) {
     const elapsedTime = Date.now() - startTime;
@@ -237,7 +236,7 @@ function detectPlaintextParagraphs(document: vscode.TextDocument): Paragraph[] {
         const paragraphData = {
           lines: currentParagraphLines,
           startOffset: paragraphStartOffset,
-          type: ParagraphType.Normal,
+          type: ParagraphType.Normal
         };
         finalizeParagraph(paragraphData, currentOffset, paragraphs);
         currentParagraphLines = [];
@@ -806,6 +805,7 @@ export async function initializeAnalyzer(
   context: vscode.ExtensionContext,
   disposables: DisposableStore
 ): Promise<void> {
+  extensionContext = context;
   analyzerDisposables = disposables;
   try {
     // 診断情報コレクションを作成
