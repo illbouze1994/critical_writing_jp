@@ -150,6 +150,16 @@ export class WebviewPanel {
         await vscode.commands.executeCommand('criticalWritingJp.runKeywordNow');
         break;
 
+      case 'toggleKeywordHighlight':
+        console.log('[WebviewPanel] Received toggleKeywordHighlight command:', message.enabled);
+        // Placeholder for actual implementation
+        break;
+
+      case 'reorderParagraphs':
+        console.log('[WebviewPanel] Received reorderParagraphs command:', message.payload);
+        await vscode.commands.executeCommand('criticalWritingJp.dnd-reorder', message.payload);
+        break;
+
       default:
         console.warn(`[WebviewPanel] Unknown message command: ${message.command}`);
     }

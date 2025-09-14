@@ -330,6 +330,15 @@ function registerCommands(store: DisposableStore, context: vscode.ExtensionConte
   } catch (error) {
     console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.jumpToParagraphAndShowPanel');
   }
+
+  try {
+    store.add(vscode.commands.registerCommand('criticalWritingJp.dnd-reorder', async (payload: string[]) => {
+      console.log('[Extension] dnd-reorder command executed with payload:', payload);
+      // Placeholder for reordering logic
+    }));
+  } catch (error) {
+    console.warn('[CriticalWritingJp] Command already registered: criticalWritingJp.dnd-reorder');
+  }
 }
 
 /**

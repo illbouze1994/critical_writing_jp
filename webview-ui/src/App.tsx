@@ -13,7 +13,7 @@ const App = () => {
     const newState = !highlighting;
     setHighlighting(newState);
     vscodeApi.postMessage({
-      type: 'toggleKeywordHighlight',
+      command: 'toggleKeywordHighlight',
       enabled: newState,
     });
   };
