@@ -389,11 +389,13 @@ function registerTextDocumentHandlers(store: DisposableStore, context: vscode.Ex
       }
       lastActiveMarkdownEditor = editor;
 
+      // パネルを表示
+      const { createOrShowPanel } = await import('./features/webview-panel');
+      await createOrShowPanel(context);
+
       // 新しいファイルが開かれた時の初期解析
       const { runAnalysis } = await import('./features/analyzer');
       await runAnalysis(editor.document);
-
-      // The new analyzer automatically sends updates to the panel, so this is not needed.
     } catch (error) {
       console.warn('[CriticalWritingJp] Error in active editor change handler:', error);
     }

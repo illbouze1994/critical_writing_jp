@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { DisposableStore } from '../platform/disposable-store';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
+import { WebviewPanel } from '../features/webview-panel';
 import { keywordEngine } from './keyword-engine';
 import { roiEngine } from './roi-engine';
 import { styleChecker } from './style-checker';
@@ -20,6 +21,8 @@ let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem | undefined;
 // 拡張機能本体から渡されるDisposableStore
 let analyzerDisposables: DisposableStore | undefined;
+// 拡張機能のコンテキスト
+let extensionContext: vscode.ExtensionContext;
 
 /**
  * テキスト変更イベントの処理
@@ -105,6 +108,20 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     // 診断情報を更新
     updateDiagnostics(document, styleViolations, citationViolations);
     
+    // Webviewパネルに解析結果を送信
+    if (extensionContext) {
+      const panel = WebviewPanel.getInstance(extensionContext);
+      const panelUpdateData = {
+        paragraphs: result.paragraphs,
+        statistics: {
+          totalCount: result.paragraphs.length,
+        },
+      };
+      // updateWithAnalysisResult は ParagraphAnalysisResult 型を期待するが、
+      // 構造が互換なのでそのまま渡す
+      panel.updateWithAnalysisResult(panelUpdateData as any);
+    }
+
     return result;
   } catch (error) {
     const elapsedTime = Date.now() - startTime;
@@ -733,6 +750,7 @@ export async function initializeAnalyzer(
   context: vscode.ExtensionContext,
   disposables: DisposableStore
 ): Promise<void> {
+  extensionContext = context;
   analyzerDisposables = disposables;
   try {
     // 診断情報コレクションを作成
