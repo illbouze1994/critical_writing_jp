@@ -171,6 +171,7 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
           chars: overallStats.summary.chars,
         },
         charts: overallStats.charts,
+        },
       };
       // updateWithAnalysisResult は ParagraphAnalysisResult 型を期待するが、
       // 構造が互換なのでそのまま渡す
