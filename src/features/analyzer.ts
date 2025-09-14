@@ -164,7 +164,7 @@ function detectPlaintextParagraphs(document: vscode.TextDocument): Paragraph[] {
         const paragraphData = {
           lines: currentParagraphLines,
           startOffset: paragraphStartOffset,
-          type: ParagraphType.Normal,
+          type: ParagraphType.Normal
         };
         finalizeParagraph(paragraphData, currentOffset, paragraphs);
         currentParagraphLines = [];
