@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import { DisposableStore } from '../platform/disposable-store';
 import { Paragraph, ParagraphType, AnalysisResult } from '../core/types';
 import { normalizeText, countChars, sha1, debounce } from '../core/utils';
-import { WebviewPanel } from '../features/webview-panel';
+import { WebviewPanel } from './webview-panel';
 import { keywordEngine } from './keyword-engine';
-import { isJoyo } from 'joyo-kanji';
+import * as joyoKanji from 'joyo-kanji';
 import { roiEngine } from './roi-engine';
 import { styleChecker } from './style-checker';
 import { citationChecker } from './citation-checker';
@@ -75,7 +75,7 @@ function calculateOverallStats(paragraphs: Paragraph[]) {
       katakana++;
     } else if (char.match(/[\u4E00-\u9FAF]/)) {
       kanji++;
-      if (isJoyo(char)) {
+      if (joyoKanji.isJoyo(char)) {
         joyo++;
       } else {
         nonJoyo++;
@@ -92,7 +92,7 @@ function calculateOverallStats(paragraphs: Paragraph[]) {
     { name: 'その他', value: other / totalChars },
   ];
 
-  const joyoKanji = [
+  const joyoKanjiData = [
     { name: '常用漢字', value: joyo / (joyo + nonJoyo || 1) },
     { name: '常用外漢字', value: nonJoyo / (joyo + nonJoyo || 1) },
   ];
@@ -103,7 +103,7 @@ function calculateOverallStats(paragraphs: Paragraph[]) {
     },
     charts: {
       charBalance,
-      joyoKanji,
+      joyoKanji: joyoKanjiData,
     }
   };
 }
