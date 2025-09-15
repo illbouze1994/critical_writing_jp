@@ -25,7 +25,6 @@ let analyzerDisposables: DisposableStore | undefined;
 // 拡張機能のコンテキスト
 let extensionContext: vscode.ExtensionContext;
 
-
 /**
  * テキスト変更イベントの処理
  * @param event テキスト変更イベント
@@ -160,7 +159,7 @@ async function performAnalysis(document: vscode.TextDocument): Promise<AnalysisR
     
     // 診断情報を更新
     updateDiagnostics(document, styleViolations, citationViolations);
-
+    
     // Webviewパネルに解析結果を送信
     if (extensionContext) {
       const overallStats = calculateOverallStats(result.paragraphs);
@@ -237,7 +236,7 @@ function detectPlaintextParagraphs(document: vscode.TextDocument): Paragraph[] {
         const paragraphData = {
           lines: currentParagraphLines,
           startOffset: paragraphStartOffset,
-          type: ParagraphType.Normal,
+          type: ParagraphType.Normal
         };
         finalizeParagraph(paragraphData, currentOffset, paragraphs);
         currentParagraphLines = [];
